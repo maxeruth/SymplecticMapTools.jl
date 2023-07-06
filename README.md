@@ -9,4 +9,8 @@ This is a package devoted to different tools for analyzing (primarily 2D) symple
 [2] In preparation.\
 [3] In preparation.
 
+# Installation
+For installation, simply use the Julia package manager command `]install SymplecticMapTools`
+
+# Contact
 For any questions, email [mer335@cornell.edu](mailto:mer335@cornell.edu)
