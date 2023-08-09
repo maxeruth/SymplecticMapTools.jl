@@ -1,0 +1,13 @@
+name = "SymplecticMapTools"
+uuid = "6d28690f-f14d-4e01-b22c-df83f7606a8b"
+authors = ["Max Ruth", "David Bindel"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
