@@ -1,0 +1,321 @@
+include("./Kernels/kernels.jl")
+
+function constraint_matrix(N)
+    return sparse(1:2N, kron(1:N, [1,1]), kron(ones(N), [1.,-1.]))
+end
+
+"""
+    kernel_sample_F(F::Function, N::Integer, xb::AbstractVector,
+                    yb::AbstractVector)
+
+Sobol sample `N` points in the rectangle `xb` × `yb`. Then, evaluate `F` at
+each point. Input can be used for `kernel_eigs` and `kernel_bvp`
+"""
+function kernel_sample_F(F::Function, N::Integer, xb::AbstractVector,
+                         yb::AbstractVector)
+    xs = zeros(2, 2, N);
+    s = SobolSeq([xb[1], yb[1]], [xb[2], yb[2]])
+
+    for ii = 1:N
+        x = next!(s)
+        Fx = F(x);
+
+        xs[:, 1, ii] = x;
+        xs[:, 2, ii] = Fx;
+    end
+
+    return reshape(xs[:,:,:], 2, 2N);
+end
+
+# Windowing function that is nearly ϵ at 0, and nearly E as |x| → ∞. The bounds of the window are given by xb. w is half the width, defining how
+# fast the tanh decays
+function tanh_window(x, xb, ϵ, E, w)
+    μ1 = xb[1] - w;
+    μ2 = xb[2] + w;
+
+    ϵ + ((E-ϵ)/2) * (2 + tanh((x - μ2)/w) + tanh(-(x - μ1)/w))
+end
+
+function window_weights(xs::AbstractArray, xb, yb, w::Number,
+                        xbuf::Number, ybuf::Number, ϵ::Number, E::Number)
+    f = (x) -> E - (E-ϵ)*(tanh_window(x[1], xb .+ (-xbuf/2, xbuf/2), 1., 0., w)*
+                          tanh_window(x[2], yb .+ (-ybuf/2, ybuf/2), 1., 0., w));
+    return [f(x) for x in eachcol(xs)]
+end
+
+
+"""
+    kernel_eigs(xs::AbstractArray, ϵ::Number, nev::Integer; σ::Number=0.,
+                kernel::Symbol=:SquaredExponential, W = 0. * I,
+                zero_mean = false, check = 1)
+
+Solve the the invariant eigenvalue problem, given by the Rayleigh quotient
+    min_c (‖GKc‖² + ‖Kc‖²_{bd} + ϵ‖c‖ₖ²)/‖Kc‖²
+where
+- ‖GKc‖² is a norm penalizing invariance (and possible a non-zero mean)
+- ‖Kc‖²_{bd} is a norm penalizing boundary violation
+- ‖c‖ₖ² is the smoothing kernel norm
+- ‖Kc‖² is the ℓ² norm of the points
+Outputs eigenvalues `λs`, eigenvectors `vs`, and kernel label `k`. Use
+`set_c!(k, vs[:,n])` to load the `n`th eigenvector into `k`. By default, `k`
+stores the lowest order eigenvector. The eigenvalue problem is solved via Arpack
+
+Arguments:
+- `xs`: interpolation points of size d × 2N, where xs[:, N+1:2N] = F.(xs[:, 1:N])
+- `ϵ`: Amount of regularization
+- `nev`: Number of eigenvalues to find
+- `σ`: Kernel width
+- `boundary_weights`: Boundary weighting vector, should be positive and O(1) at
+  points `x` where one wants |k(x)| \ll 1
+- `kernel`: Type of kernel to interpolate (see `KernelLabel`)
+- `zero_mean = false`: Set to true to add a constraint that encourages `k` to
+  have a zero mean. Useful when `xs` are sampled on an invariant set and
+  boundary_weights=0
+- `check = 1`: See `Arpack.eigs`. If 1, return all of the converged eigenvectors
+  and eigenvalues. If 0, throw an error instead.
+"""
+function kernel_eigs(xs::AbstractArray, ϵ::Number, nev::Integer, σ::Number,
+                     boundary_weights::Vector; kernel::Symbol=:SquaredExponential,
+                     zero_mean = false, check = 1)
+    d = size(xs, 1);
+    N = size(xs, 2)÷2;
+
+    if (size(xs, 2) - 2N != 0) # Need to use an even number points
+        xs = xs[:, 1:2N]
+    end
+
+    k = KernelLabel(xs, zeros(2N), σ; kernel)
+
+    # Obtain and factorize kernel matrix
+    K = Symmetric(get_matrix(k, xs));
+    chol = cholesky(K, RowMaximum(), check=false)
+    p = chol.piv;
+    ip = invperm(p);
+    L = chol.L[:, 1:chol.rank];
+
+    # Get constraint matrix
+    i1 = 1:2:2N; i2 = 2:2:2N;
+    GPtL_inv = L[ip[i1], :] - L[ip[i2], :]
+    GPtL_bd = L[ip[boundary_points], :];
+    v_mean = ones(2N) ./ sqrt(2N);
+    GPtL_mean = zero_mean ? (ones(2N)'*L ./ sqrt(2N))' : zeros(0, chol.rank)
+
+    # Find Eigenvalue problem matrices
+    A = Symmetric(L'*L)
+
+    GPtL = vcat(GPtL_inv, GPtL_bd, GPtL_mean);
+    W = Diagonal(boundary_weights)
+    B = Symmetric(GPtL'*GPtL + ϵ*I + L[ip, :]'*W*L[ip, :])
+
+    # Call eigs
+    λs, vs = Arpack.eigs(A,B; nev = nev, which = :LR, check = check);
+
+    # Post process
+    λs = 1 ./ λs;
+
+    vs = L*(A \ vs) # Can we avoid this?
+    vs = vs[ip, :]
+    vs = vs * Diagonal([1. ./ norm(K*v) for v = eachcol(vs)])
+
+    Nλ = length(λs)
+    if Nλ == nev # Arpack converged
+        return λs, vs, k
+    end
+
+    # Arpack did not converge
+    λs_new = zeros(nev);
+    vs_new = zeros(size(vs,1), nev);
+    λs_new[1:Nλ] = λs;
+    λs_new[Nλ+1:end] .= NaN;
+    vs_new[:, 1:Nλ] = vs;
+    vs_new[:, Nλ+1:end] .= NaN;
+
+    return λs_new, vs_new, k
+end
+
+
+"""
+    kernel_bvp(xs::AbstractArray, ϵ::Number, σ::Number,
+               boundary_weights::AbstractVector,
+               boundary_values::AbstractVector;
+               kernel::Symbol=:SquaredExponential, residuals::Bool=true)
+
+Solve the the invariant boundary value least-squares problem
+    min_c ‖GKc‖² + ‖Kc - h_{bd}‖²_{bd} + ϵ‖c‖ₖ² = R_inv + R_bd + R_eps
+where
+- ‖GKc‖² is a norm penalizing invariance (and possible a non-zero mean)
+- ‖Kc - h_{bd}‖²_{bd} is a norm penalizing the function from violating the
+  boundary condition
+- ‖c‖ₖ² is the smoothing kernel norm
+Outputs a kernel label `k` with the solution `c`. If `residuals=true`, also
+outputs the values of `R_inv`, `R_bd`, `R_eps`, and `R = R_inv + R_bd + R_eps`.
+
+Arguments:
+- `xs`: interpolation points of size d × 2N, where xs[:, N+1:2N] = F.(xs[:, 1:N])
+- `ϵ`: Amount of regularization
+- `σ`: Kernel width
+- `boundary_weights`: Length `2N` boundary weighting vector, should be positive
+  and O(1) at points `x` where one wants |k(x)| \ll 1
+- `boundary_values`: Length `2N` boundary value vector, indicating the value the
+  function should take at each point
+- `kernel=:SquaredExponential`: Type of kernel to interpolate
+  (see `KernelLabel`)
+- `residuals=true`: True if you want the problem to return residuals.
+"""
+function kernel_bvp(xs::AbstractArray, ϵ::Number, σ::Number,
+                    boundary_weights::AbstractVector,
+                    boundary_values::AbstractVector;
+                    kernel::Symbol=:SquaredExponential, residuals::Bool=true)
+    d = size(xs, 1);
+    N = size(xs, 2)÷2;
+
+    if (size(xs, 2) - 2N != 0) # Need to use an even number
+        xs = xs[:, 1:2N]
+    end
+
+    if σ == 0.
+        xa = [minimum(xs[ii, :]) for ii = 1:d]
+        xb = [maximum(xs[ii, :]) for ii = 1:d]
+        σ  = 5. * (prod(xb-xa)/(2N))^(1/d) # Arbitrary choice assuming evenly distributed points
+    end
+
+    k = KernelLabel(xs, zeros(2N), σ; kernel)
+
+    K = Symmetric(get_matrix(k, xs));
+
+    A = zeros(2N, 2N);
+    i1 = 1:2:2N; i2 = 2:2:2N;
+
+    # Enforce invariance constraint
+    GK = K[i1, :] - K[i2, :];
+    A[i1, :] = GK
+    A[i2, :] = -GK;
+
+    # Boundary and regularization
+    W = Diagonal(boundary_weights)
+    A = A + W * K + ϵ*I;
+
+    # rhs
+    rhs = W * boundary_values;
+
+    # Solve
+    set_c!(k, A\rhs);
+
+
+    if residuals
+        G = constraint_matrix(N)
+        c = get_c(k);
+        tmp = K*c;
+        tmp = tmp[i1]-tmp[i2]
+        R_inv = tmp'*tmp;
+
+        tmp = K*c-boundary_values;
+        R_bd = tmp'*W*tmp;
+
+        R_eps = ϵ*(c'*K*c);
+
+        R = R_bd + R_inv + R_eps;
+
+        return k, R, R_bd, R_inv, R_eps
+    else
+        return k
+    end
+end
+
+
+"""
+    get_energies(k::KernelLabel; W = 0. * I)
+
+Get the relevant energies of a kernel label `k` with boundary weighting
+matrix `W`.
+
+Output energies:
+- EK = ‖c‖ₖ² is the smoothing kernel norm
+- EInv = ‖GKc‖² is a norm penalizing invariance
+- Ebd = ‖Kc‖²_W is a norm penalizing boundary violation
+- EL2 = ‖Kc‖² is the ℓ² norm of the points
+"""
+function get_energies(k::KernelLabel; W = 0. * I)
+    N = get_N(k)
+    K = get_matrix(k, get_x(k));
+    G = constraint_matrix(N)
+    c = get_c(k)
+
+    Kc = K*c;
+    GKc = Kc[1:2:end] - Kc[2:2:end];
+
+    EK = c'*Kc;
+    EInv = GKc'*GKc;
+    Ebd = Kc'*W*Kc;
+    EL2 = Kc'*Kc;
+
+    return EK, EInv, Ebd, EL2
+end
+
+
+
+"""
+    kernel_birkhoff(xs::AbstractArray, fs::AbstractVector, ϵ::Number, μ::Number;
+                    σ::Number=0., kernel::Symbol=:SquaredExponential,
+                    boundary_points::AbstractVector = [])
+
+This function is mostly deprecated. The solutions to the infinitely discretized
+limit of this problem (the Birkhoff average) don't live in the native space. So,
+the results can be odd, hard to interpret, and wiggly. Use at your own risk.
+
+Find the "Birkhoff average" of a function using the kernel approach. Solves the
+least-squares problem
+    min_c μ⁻¹(‖GKc‖² + ‖Kc‖²_{bd}) + ϵ‖c‖ₖ² + ‖Kc - f‖²
+where
+- ‖GKc‖² is a norm penalizing invariance
+- ‖c‖ₖ² is the smoothing kernel norm
+- ‖Kc - f‖² is a least-squares fit norm
+- ‖Kc‖²_{bd} is a norm penalizing boundary violation
+
+Arguments:
+- xs: interpolation points of size d × 2N, where xs[:, N+1:2N] = F.(xs[:, 1:N])
+- fs: function values at points of size N
+- ϵ: Amount of regularization (can be set to zero)
+- μ: Weighting of invariance penalization to fit (should be small, e.g.~1e-6)
+- σ: Scale of the problem
+- kernel: Type of kernel to interpolate (see `KernelLabel`)
+- boundary_points: A list of indices of points on the boundary
+
+Output:
+- k: A KernelLabel object
+"""
+function kernel_birkhoff(xs::AbstractArray, fs::AbstractVector, ϵ::Number,
+                         μ::Number, σ::Number; kernel::Symbol=:SquaredExponential,
+                         boundary_points::AbstractVector = [])
+    d = size(xs, 1);
+    N = size(xs, 2)÷2;
+
+    if (size(xs, 2) - 2N != 0) # Need to use an even number
+        xs = xs[:, 1:2N]
+    end
+
+    k = KernelLabel(xs, zeros(2N), σ; kernel)
+
+    K = Symmetric(get_matrix(k, xs));
+    G = constraint_matrix(N)
+
+    # LHS Matrix
+    A = zeros(2N, 2N);
+
+    # Enforce invariance constraint
+    GK = K[1:2:2N, :] - K[2:2:2N, :];
+    A[1:2:2N, :] = GK
+    A[2:2:2N, :] = -GK;
+
+    # Enforce zero Dirichlet BC
+    bd = boundary_points
+    A[boundary_points, :] = A[boundary_points, :] + K[boundary_points, :];
+
+    # Add interpolation and regularization terms
+    A = (1/μ)*A + K + ϵ*I
+
+    # Solve
+    set_c!(k, A\fs);
+
+    return k
+end
