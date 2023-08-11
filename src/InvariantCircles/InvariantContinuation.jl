@@ -217,7 +217,7 @@ function find_island_boundary!(island::Island, FJ::Function, Na::Integer, rtol::
         # Check if the orbit found is valid
         is_new_orbit = true;
         prev_orbits = get_unstable_orbits(island)
-        unstable_orbit_tol = 1e-5 * norm(z);
+        unstable_orbit_tol = 1e-5 * average_radius(z);
         for kk = 1:p*denominator
             # If we found the o-point, we are not happy
             if norm(unstable_orbit[:, kk] - o_point[:, 1]) < unstable_orbit_tol
@@ -317,11 +317,11 @@ function island_continuation_predict(island::Island, FJ::Function, h_z::Number,
         set_τ_center!(island, get_τ(z));
     elseif N_circle == 1
         z_prev = get_circle(island, 1);
-        if norm(z_prev) > max_radius
+        if average_radius(z_prev) > max_radius
             return 0, 0
         end
 
-        # Δznorm = norm(z_prev);
+        # Δznorm = average_radius(z_prev);
         Δroot_area = sqrt(abs(area(z_prev))); # Continue in the sqrt of the area
         Δτ = get_τ(z_prev) - get_τ_center(island);
         Δs = sqrt(Δroot_area^2 / h_z^2 + Δτ^2 / h_τ^2);
@@ -341,11 +341,11 @@ function island_continuation_predict(island::Island, FJ::Function, h_z::Number,
     else
         z_prev = get_circle(island, N_circle);
         z_prev2 = get_circle(island, N_circle-1);
-        if norm(z_prev) > max_radius
+        if average_radius(z_prev) > max_radius
             return 0, 0
         end
 
-        # Δznorm = norm(z_prev) - norm(z_prev2);
+        # Δznorm = average_radius(z_prev) - average_radius(z_prev2);
         root_area_prev = sqrt(abs(area(z_prev)))
         Δroot_area = root_area_prev - sqrt(abs(area(z_prev2)));
         Δτ = get_τ(z_prev) - get_τ(z_prev2);
@@ -434,7 +434,7 @@ function island_continuation_from_center(stable_orbit::AbstractArray,
 
             if verbose
                 i_h = i_h+1;
-                println("i_h = $(i_h), i_refinement = $(i_refinement), radius = $(norm(z)), τ = $(get_τ(z))")
+                println("i_h = $(i_h), i_refinement = $(i_refinement), radius = $(average_radius(z)), τ = $(get_τ(z))")
             end
         end
 

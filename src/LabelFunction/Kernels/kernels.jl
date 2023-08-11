@@ -23,17 +23,19 @@ include("./fourier_se.jl")
     KernelLabel
 
 Constructors:
-    KernelLabel(x::AbstractArray, c::AbstractVector, σ::Number;
-                kernel::Symbol=:SquaredExponential)
-    KernelLabel(x::AbstractArray, c::AbstractVector, σ::AbstractArray;
-                kernel::Symbol=:SquaredExponential)
+- `KernelLabel(x::AbstractArray, c::AbstractVector, σ::Number;`
+                `kernel::Symbol=:SquaredExponential)`
+- `KernelLabel(x::AbstractArray, c::AbstractVector, σ::AbstractArray;`
+                `kernel::Symbol=:SquaredExponential)`
 
 An approximately invariant kernel label function.
-Elements:
+
+Constructor elements:
 - `x`: The `d` × `2N` array of interpolating points, where
   `x[:, n+N] = F(x[:, n])` for `n<=N` and some symplectic map `F`.
 - `c`: The length `2N` vector of coefficients of the kernel function
-- `σ`: The length scale of the kernel (may be different in different directions)
+- `σ`: The length scale of the kernel (if a vector, length scale is different in
+  different directions)
 - `kernel`: The type of kernel used
 
 The current supported kernels are:
@@ -45,7 +47,7 @@ The current supported kernels are:
     K(x, y) = (1+|x-y|²)^(-1/2)
 - `:FourierSE`: The Fourier × Cartesian squared exponential kernel
     K(x, y) = exp(-sin²(x₁-y₁) - (x₂-y₂)²)
-- `:Fourier`: The Fourier × Fourie squared exponential kernel
+- `:Fourier`: The Fourier × Fourier squared exponential kernel
     K(x, y) = exp(-sin²(x₁-y₁) - sin²(x₂-y₂))
 """
 struct KernelLabel
@@ -105,19 +107,19 @@ function get_matrix(k::KernelLabel, x::AbstractArray)
 end
 
 """
-    eval(k::KernelLabel, x::AbstractArray)
+    evaluate(k::KernelLabel, x::AbstractArray)
 
 Evaluate the kernel matrix at the columns of x
 """
-function eval(k::KernelLabel, x::AbstractArray)
+function evaluate(k::KernelLabel, x::AbstractArray)
     return get_matrix(k, x) * get_c(k); # Default routine
 end
 
 """
     (k::KernelLabel)(x::AbstractArray)
 
-Wrapper for `eval(k::KernelLabel, x::AbstractArray)`
+Wrapper for `evaluate(k::KernelLabel, x::AbstractArray)`
 """
 function (k::KernelLabel)(x::AbstractArray)
-    eval(k, x)
+    evaluate(k, x)
 end

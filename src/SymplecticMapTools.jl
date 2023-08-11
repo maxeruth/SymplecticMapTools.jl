@@ -14,6 +14,7 @@ using LinearOperators
 using SparseArrays
 using Arpack
 using IterativeSolvers
+using Polynomials
 
 # using LoopVectorization
 
@@ -21,31 +22,38 @@ using IterativeSolvers
 # LinearAlgebra.norm, Base.setindex!, Base.getindex, Base.similar, Base.length,
 # ???Base.(), Base.size
 
-## Extensions require Julia > 1.9
-if !isdefined(Base, :get_extension)
-  include("../ext/SymplecticMapToolsExtPlots.jl")
-  include("../ext/SymplecticMapToolsExtCairoMakie.jl")
-end
-
 ## Files to include
 include("./InvariantCircles/InvariantCircles.jl")
 include("./InvariantCircles/ConnectingOrbit.jl")
 include("./LabelFunction/KernelLabel.jl")
+include("./Birkhoff/BirkhoffAveraging.jl")
 include("./Examples/Examples.jl")
+
+
 
 ## Export functions (comments give where they first show up)
 # InvariantCircles.jl, FourierCircle.jl
 export InvariantCircle, FourierCircle, get_Na, get_p, get_a0, set_a0!, get_Am,
-       set_Am!, get_τ, set_τ!, eval, deval, deriv, area, shifted_eval,
-       get_circle_residual, gn_circle
+       set_Am!, get_τ, set_τ!, average_radius, evaluate, deval, deriv, area,
+       shifted_eval, get_circle_residual, gn_circle
 # ConnectingOrbit.jl
 export ConnectingOrbit, get_am, set_am!, linear_initial_connecting_orbit,
        gn_connecting!
 # kernels.jl, KernelLabel.jl
-export KernelLabel, get_x, get_c, get_σ, get_kernel, get_N, set_x!, set_c!,
-       get_matrix, kernel_sample_F, kernel_eigs, kernel_bvp, get_energies,
-       kernel_birkhoff
+export KernelLabel, get_matrix, kernel_sample_F, kernel_eigs, kernel_bvp,
+       get_energies, kernel_birkhoff
 # Examples.jl
 export standard_map_F, standard_map_FJ, polar_map
+# BirkhoffAveraging.jl, ContinuedFractions.jl, MPE.jl
+export vector_mpe_backslash, vector_mpe_iterative, ContFrac, big_cont_frac_eval,
+       partial_frac, denoms, big_partial_frac, big_denoms, wba_weight,
+       birkhoff_extrapolation, adaptive_birkhoff_extrapolation, sum_stats,
+       get_sum_ave, get_circle_info
+
+## Extensions require Julia > 1.9
+# if !isdefined(Base, :get_extension)
+      include("../ext/SymplecticMapToolsPlotsExt.jl")
+      include("../ext/SymplecticMapToolsCairoMakieExt.jl")
+# end
 
 end

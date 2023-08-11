@@ -3,10 +3,10 @@
     ConnectingOrbit(Na::Integer, p::Integer)
 
 Initialize a connecting orbit consisting of `p` segments
-``c_j : [0,1] \\to \\mathbb{R}^2``. The endpoints ``c_j(0)`` and ``c_j(1)`` are
-both hyperbolic perodic orbits. The connecting orbits connect these, acting as
-the outer boundary of an island. The connecting orbits are parameterized by
-Chebyshev polynomials of degree `Na`.
+cⱼ : [0,1] -> R². The endpoints cⱼ(0) and cⱼ(1) are both hyperbolic perodic
+orbits. The connecting orbits connect these, acting as the outer boundary of an
+island. The connecting orbits are parameterized by Chebyshev polynomials of
+degree `Na`.
 
 See `linear_initial_connecting_orbit` and `gn_connecting!` for functions to
 initialize and compute a connecting orbit.
@@ -92,11 +92,11 @@ function Base.setindex!(c::ConnectingOrbit, X::AbstractArray, i_A::Integer, i_p:
 end
 
 """
-    eval(c::ConnectingOrbit, x::AbstractArray; i_p::Integer=1)
+    evaluate(c::ConnectingOrbit, x::AbstractArray; i_p::Integer=1)
 
-Evaluate the `i_p`th connecting orbit at a set of points `x[j]`∈[0,1]
+Evaluate the `i_p`th connecting orbit at a set of points `x[j]` in [0,1]
 """
-function eval(c::ConnectingOrbit, x::AbstractArray; i_p::Integer=1)
+function evaluate(c::ConnectingOrbit, x::AbstractArray; i_p::Integer=1)
     Na = get_Na(c);
     Nx = length(x);
 
@@ -111,27 +111,27 @@ function eval(c::ConnectingOrbit, x::AbstractArray; i_p::Integer=1)
 end
 
 """
-    eval(c::ConnectingOrbit, x::Number; i_p::Integer=1)
+    evaluate(c::ConnectingOrbit, x::Number; i_p::Integer=1)
 
-Evaluate the `i_p`th connecting orbit at a point `x`∈[0,1]
+Evaluate the `i_p`th connecting orbit at a point `x` in [0,1]
 """
-function eval(c::ConnectingOrbit, x::Number; i_p::Integer=1)
-    return vec(eval(c, [x]; i_p));
+function evaluate(c::ConnectingOrbit, x::Number; i_p::Integer=1)
+    return vec(evaluate(c, [x]; i_p));
 end
 
 """
     (c::ConnectingOrbit)(x, i_p)
 
-Wrapper for eval(c, x; i_p)
+Wrapper for evaluate(c, x; i_p)
 """
 function (c::ConnectingOrbit)(x, i_p)
-    return eval(c, x; i_p)
+    return evaluate(c, x; i_p)
 end
 
 """
     deval(c::ConnectingOrbit, x::Number; i_p::Integer=1)
 
-Evaluate the derivative of the `i_p`th connecting orbit at a point `x`∈[0,1]
+Evaluate the derivative of the `i_p`th connecting orbit at a point `x` in [0,1]
 """
 function deval(c::ConnectingOrbit, x::Number; i_p::Integer=1)
     Na = get_Na(c);
@@ -391,8 +391,8 @@ Find a connecting orbit using Gauss Newton with linesearch.
 Arguments:
 - `c::ConnectingOrbit`: An initial connecting orbit guess, see
   `linear_initial_connecting_orbit`
-- `FJ::Function`: Function defined on ``\\mathbb{R}^2`` with signature
-  `F(x), J(x) = FJ(x)` where `F` is the symplectic map and `J = dF/dx`
+- `FJ::Function`: Function defined on R² with signature  `F(x), J(x) = FJ(x)`
+  where `F` is the symplectic map and `J = dF/dx`
 - `ends::AbstractArray`: A 2p × 2 matrix containing the end periodic orbits
   `[x00, x10; F(x00), F(x10); ... ; F^(p-1)(x00), F^(p-1)(x10)]`
 - `Ns = 100`: Number of quadrature nodes for the least squares

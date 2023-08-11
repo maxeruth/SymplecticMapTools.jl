@@ -19,17 +19,17 @@ function CairoMakie.lines!(ax, z::InvariantCircle; N::Integer=100,
 end
 
 """
-   lines_periodic!(ax, z::InvariantCircle, hinv::Function; N::Integer=100,
-                   color=nothing, i_circle::Integer=0, linewidth=1)
+    lines_periodic!(ax, z::InvariantCircle, hinv::Function; N::Integer=100,
+                    color=nothing, i_circle::Integer=0, linewidth=1)
 
-Useful for plotting with invariant circles on the torus. I.e., if F : 𝕋×ℝ→𝕋×ℝ,
-and one finds an invariant circle of z(θ+τ) = (h∘F)(z(θ)) where h : 𝕋×ℝ→ℝ²,
+Useful for plotting with invariant circles on the torus. I.e., if F : T×R→T×R,
+and one finds an invariant circle of z(θ+τ) = (h∘F)(z(θ)) where h : T×R→R²,
 this plots h⁻¹∘z, the original invariant circle.
 
 Arguments:
 - `ax`: CairoMakie Axis object
-- `z`: The circle in ℝ² to be plotted
-- `hinv`: The map to the torus by the real numbers h⁻¹ : ℝ²→𝕋×ℝ
+- `z`: The circle in R² to be plotted
+- `hinv`: The map to the torus by the real numbers h⁻¹ : R²→T×R
 - `N`: Number of points to plot
 - `i_circle`: Which invariant circle of an island to plot. If 0, plot all
 - `color`, `linewidth`: see `CairoMakie.lines!`
@@ -72,7 +72,8 @@ end
 
 ## Kernel plots
 """
-   plot_on_grid(x::AbstractVector, y::AbstractVector, k::KernelLabel; kwargs...)
+    plot_on_grid(x::AbstractVector, y::AbstractVector, k::KernelLabel;
+                 kwargs...)
 
 Create a contour plot of the kernel label `k` on the `x` × `y` grid.
 
@@ -95,7 +96,7 @@ function plot_on_grid(x::AbstractVector, y::AbstractVector, k::KernelLabel;
        grid[:, ii, jj] = [x[ii], y[jj]];
     end
     grid = reshape(grid, 2, Nx*Ny);
-    f_grid = reshape(eval(k, grid), Nx, Ny);
+    f_grid = reshape(evaluate(k, grid), Nx, Ny);
     f_max = maximum(abs.(f_grid));
     colorrange = (-f_max, f_max)
 

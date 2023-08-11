@@ -123,7 +123,7 @@ function block_hankel_linear_operator(ac, ar)
 end
 
 ##  The "P" matrix (imposes time reversal symmetry)
-function MPE_P(K::Integer)
+function mpe_p(K::Integer)
     M = K;
     N = 2K-1;
     function P_mul!(res, v, α, β::T) where T
@@ -161,7 +161,7 @@ function MPE_P(K::Integer)
 end
 
 # Used for when c_0 is constrained rather than c_(±K-1)
-function MPE_P_2(K::Integer)
+function mpe_p_2(K::Integer)
     M = K-1;
     N = 2K-1;
     function P_mul!(res, v, α, β::T) where T

@@ -49,13 +49,13 @@ end
                 kernel::Symbol=:SquaredExponential, W = 0. * I,
                 zero_mean = false, check = 1)
 
-Solve the the invariant eigenvalue problem, given by the Rayleigh quotient
-    min_c (‖GKc‖² + ‖Kc‖²_{bd} + ϵ‖c‖ₖ²)/‖Kc‖²
+Solve the the invariant eigenvalue problem, given by the Rayleigh quotient\\
+> `min_c (‖GKc‖² + ‖Kc‖²_bd + ϵ‖c‖²_k)/‖Kc‖²` \\
 where
-- ‖GKc‖² is a norm penalizing invariance (and possible a non-zero mean)
-- ‖Kc‖²_{bd} is a norm penalizing boundary violation
-- ‖c‖ₖ² is the smoothing kernel norm
-- ‖Kc‖² is the ℓ² norm of the points
+- `‖GKc‖²` is a norm penalizing invariance (and possible a non-zero mean)
+- `‖Kc‖²_bd` is a norm penalizing boundary violation
+- `‖c‖²_k` is the smoothing kernel norm
+- `‖Kc‖²` is the ℓ² norm of the points
 Outputs eigenvalues `λs`, eigenvectors `vs`, and kernel label `k`. Use
 `set_c!(k, vs[:,n])` to load the `n`th eigenvector into `k`. By default, `k`
 stores the lowest order eigenvector. The eigenvalue problem is solved via Arpack
@@ -66,7 +66,7 @@ Arguments:
 - `nev`: Number of eigenvalues to find
 - `σ`: Kernel width
 - `boundary_weights`: Boundary weighting vector, should be positive and O(1) at
-  points `x` where one wants |k(x)| \ll 1
+  points `x` where one wants |k(x)| << 1
 - `kernel`: Type of kernel to interpolate (see `KernelLabel`)
 - `zero_mean = false`: Set to true to add a constraint that encourages `k` to
   have a zero mean. Useful when `xs` are sampled on an invariant set and
@@ -140,13 +140,13 @@ end
                boundary_values::AbstractVector;
                kernel::Symbol=:SquaredExponential, residuals::Bool=true)
 
-Solve the the invariant boundary value least-squares problem
-    min_c ‖GKc‖² + ‖Kc - h_{bd}‖²_{bd} + ϵ‖c‖ₖ² = R_inv + R_bd + R_eps
+Solve the the invariant boundary value least-squares problem\\
+> `min_c ‖GKc‖² + ‖Kc - h_{bd}‖²_bd + ϵ‖c‖²_k = R_inv + R_bd + R_eps`\\
 where
-- ‖GKc‖² is a norm penalizing invariance (and possible a non-zero mean)
-- ‖Kc - h_{bd}‖²_{bd} is a norm penalizing the function from violating the
+- `‖GKc‖²` is a norm penalizing invariance (and possible a non-zero mean)
+- `‖Kc - h_{bd}‖²_bd` is a norm penalizing the function from violating the
   boundary condition
-- ‖c‖ₖ² is the smoothing kernel norm
+- `‖c‖²_k` is the smoothing kernel norm
 Outputs a kernel label `k` with the solution `c`. If `residuals=true`, also
 outputs the values of `R_inv`, `R_bd`, `R_eps`, and `R = R_inv + R_bd + R_eps`.
 
@@ -155,7 +155,7 @@ Arguments:
 - `ϵ`: Amount of regularization
 - `σ`: Kernel width
 - `boundary_weights`: Length `2N` boundary weighting vector, should be positive
-  and O(1) at points `x` where one wants |k(x)| \ll 1
+  and O(1) at points `x` where one wants |k(x)| << 1
 - `boundary_values`: Length `2N` boundary value vector, indicating the value the
   function should take at each point
 - `kernel=:SquaredExponential`: Type of kernel to interpolate
@@ -230,10 +230,10 @@ Get the relevant energies of a kernel label `k` with boundary weighting
 matrix `W`.
 
 Output energies:
-- EK = ‖c‖ₖ² is the smoothing kernel norm
-- EInv = ‖GKc‖² is a norm penalizing invariance
-- Ebd = ‖Kc‖²_W is a norm penalizing boundary violation
-- EL2 = ‖Kc‖² is the ℓ² norm of the points
+- `EK = ‖c‖²_k` is the smoothing kernel norm
+- `EInv = ‖GKc‖²` is a norm penalizing invariance
+- `Ebd = ‖Kc‖²_W` is a norm penalizing boundary violation
+- `EL2 = ‖Kc‖²` is the ℓ² norm of the points
 """
 function get_energies(k::KernelLabel; W = 0. * I)
     N = get_N(k)
@@ -264,25 +264,25 @@ limit of this problem (the Birkhoff average) don't live in the native space. So,
 the results can be odd, hard to interpret, and wiggly. Use at your own risk.
 
 Find the "Birkhoff average" of a function using the kernel approach. Solves the
-least-squares problem
-    min_c μ⁻¹(‖GKc‖² + ‖Kc‖²_{bd}) + ϵ‖c‖ₖ² + ‖Kc - f‖²
+least-squares problem\\
+> `min_c μ⁻¹(‖GKc‖² + ‖Kc‖²_bd) + ϵ‖c‖²_k + ‖Kc - f‖²`\\
 where
-- ‖GKc‖² is a norm penalizing invariance
-- ‖c‖ₖ² is the smoothing kernel norm
-- ‖Kc - f‖² is a least-squares fit norm
-- ‖Kc‖²_{bd} is a norm penalizing boundary violation
+- `‖GKc‖²` is a norm penalizing invariance
+- `‖c‖²_k` is the smoothing kernel norm
+- `‖Kc - f‖²` is a least-squares fit norm
+- `‖Kc‖²_bd` is a norm penalizing boundary violation
 
 Arguments:
-- xs: interpolation points of size d × 2N, where xs[:, N+1:2N] = F.(xs[:, 1:N])
-- fs: function values at points of size N
-- ϵ: Amount of regularization (can be set to zero)
-- μ: Weighting of invariance penalization to fit (should be small, e.g.~1e-6)
-- σ: Scale of the problem
-- kernel: Type of kernel to interpolate (see `KernelLabel`)
-- boundary_points: A list of indices of points on the boundary
+- `xs`: interpolation points of size d × 2N, where xs[:, N+1:2N] = F.(xs[:, 1:N])
+- `fs`: function values at points of size N
+- `ϵ`: Amount of regularization (can be set to zero)
+- `μ`: Weighting of invariance penalization to fit (should be small, e.g. 1e-6)
+- `σ`: Scale of the problem
+- `kernel`: Type of kernel to interpolate (see `KernelLabel`)
+- `boundary_points`: A list of indices of points on the boundary
 
 Output:
-- k: A KernelLabel object
+- `k`: A KernelLabel object
 """
 function kernel_birkhoff(xs::AbstractArray, fs::AbstractVector, ϵ::Number,
                          μ::Number, σ::Number; kernel::Symbol=:SquaredExponential,

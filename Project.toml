@@ -3,6 +3,26 @@ uuid = "6d28690f-f14d-4e01-b22c-df83f7606a8b"
 authors = ["Max Ruth", "David Bindel"]
 version = "1.0.0-DEV"
 
+[deps]
+Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
+IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+LinearOperators = "5c8ed15e-5a4c-59e4-a42b-c7e8811fb125"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Polynomials = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
+QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+
+[weakdeps]
+# CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+# Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+
+[extensions]
+# SymplecticMapToolsCairoMakieExt = "CairoMakie"
+# SymplecticMapToolsPlotsExt = "Plots"
+
 [compat]
 julia = "1"
 

@@ -1,10 +1,13 @@
 """
-   FourierCircle(Na::Integer; a::AbstractArray=[], τ::Number=0., p::Integer=1)
+    FourierCircle <: InvariantCircle
+
+Constructors:
+- `FourierCircle(Na::Integer; a::AbstractArray=[], τ::Number=0., p::Integer=1)`
 
 Fourier invariant circle data structure (see InvariantCircle), used to compute a
 circle z that is invariant of a map Fᵖ(z), where p is the period. This is done
-by storing all of the circles Fⁱ(z) for 0⩽i<p. The circles are stored as Fourier
-series, i.e.
+by storing all of the circles Fⁱ(z) for 0<=i<p. The circles are stored as
+Fourier series, i.e.
    z(θ) = a₀ + ∑₁ᴺᵃ Aⱼ [cos(jθ), sin(jθ)]ᵀ
 The coefficients of the invariant circle can be accessed and set in chunks via
 array indexing. That is,
@@ -31,7 +34,7 @@ function Base.size(z::FourierCircle)
 end
 
 """
-   get_Na(z::FourierCircle)
+    get_Na(z::FourierCircle)
 
 Get number of Fourier modes
 """
@@ -40,7 +43,7 @@ function get_Na(z::FourierCircle)
 end
 
 """
-   get_N(z::FourierCircle)
+    get_N(z::FourierCircle)
 
 Get number of unknown parameters per circle in island, excluding τ
 """
@@ -50,7 +53,7 @@ function get_N(z::FourierCircle)
 end
 
 """
-   get_p(z::FourierCircle)
+   `get_p(z::FourierCircle)`
 
 Get number of islands
 """
@@ -59,7 +62,7 @@ function get_p(z::FourierCircle)
 end
 
 """
-   Base.length(z::FourierCircle)
+   `Base.length(z::FourierCircle)`
 
 Get total number of parameters, excluding τ
 """
@@ -68,7 +71,7 @@ function Base.length(z::FourierCircle)
 end
 
 """
-   get_a0(z::FourierCircle; i_circle::Integer=1)
+    get_a0(z::FourierCircle; i_circle::Integer=1)
 
 Get constant term of Fourier series of the `i_circle`th circle in island chain
 """
@@ -77,7 +80,7 @@ function get_a0(z::FourierCircle; i_circle::Integer=1)
 end
 
 """
-   set_a0!(z::FourierCircle, a0::AbstractArray; i_circle::Integer=1)
+    set_a0!(z::FourierCircle, a0::AbstractArray; i_circle::Integer=1)
 
 Set constant term of Fourier series of the `i_circle`th circle in island chain
 """
@@ -86,7 +89,7 @@ function set_a0!(z::FourierCircle, a0::AbstractArray; i_circle::Integer=1)
 end
 
 """
-   get_Am(z::FourierCircle, m::Integer; i_circle::Integer=1)
+    get_Am(z::FourierCircle, m::Integer; i_circle::Integer=1)
 
 Get `m`th Fourier coefficients of the `i_circle`th circle in island chain
 """
@@ -95,7 +98,7 @@ function get_Am(z::FourierCircle, m::Integer; i_circle::Integer=1)
 end
 
 """
-   set_Am!(z::FourierCircle, m::Integer, a::AbstractArray; i_circle::Integer=1)
+    set_Am!(z::FourierCircle, m::Integer, a::AbstractArray; i_circle::Integer=1)
 
 Set `m`th Fourier coefficients of the `i_circle`th circle in island chain
 """
@@ -104,10 +107,10 @@ function set_Am!(z::FourierCircle, m::Integer, a::AbstractArray; i_circle::Integ
 end
 
 """
-   Base.getindex(z::FourierCircle, i_A::Integer, i_circle::Integer)
+    Base.getindex(z::FourierCircle, i_A::Integer, i_circle::Integer)
 
-Overload the [~,~] operator to get the coefficients of z. `z[0, i_circle]`
-gets the constant term. `z[i_A, i_circle]` gets higher coefficients
+Get the coefficients of z. `z[0, i_circle]` gets the constant term.
+`z[i_A, i_circle]` gets higher coefficients
 """
 function Base.getindex(z::FourierCircle, i_A::Integer, i_circle::Integer)
    if i_A == 0
@@ -118,11 +121,11 @@ function Base.getindex(z::FourierCircle, i_A::Integer, i_circle::Integer)
 end
 
 """
-   Base.setindex!(z::FourierCircle, X::AbstractArray, i_A::Integer,
-                  i_circle::Integer)
+    Base.setindex!(z::FourierCircle, X::AbstractArray, i_A::Integer,
+                   i_circle::Integer)
 
-Overload the [~,~] operator to set the coefficients of z. `z[0, i_circle]`
-sets the constant term. `z[i_A, i_circle]` sets higher coefficients
+Set the coefficients of z. `z[0, i_circle]` sets the constant term.
+`z[i_A, i_circle]` sets higher coefficients
 """
 function Base.setindex!(z::FourierCircle, X::AbstractArray, i_A::Integer, i_circle::Integer)
    if i_A == 0
@@ -149,7 +152,7 @@ function set_a!(z::FourierCircle, a::AbstractArray; i_circle::Integer=0)
 end
 
 """
-   get_τ(z::FourierCircle)
+    get_τ(z::FourierCircle)
 
 Get the rotation number (the circle is 2π periodic)
 """
@@ -158,7 +161,7 @@ function get_τ(z::FourierCircle)
 end
 
 """
-   set_τ!(z::FourierCircle, τ::Number)
+    set_τ!(z::FourierCircle, τ::Number)
 
 Set the rotation number (the circle is 2π periodic)
 """
@@ -167,13 +170,13 @@ function set_τ!(z::FourierCircle, τ::Number)
 end
 
 """
-   LinearAlgebra.norm(z::FourierCircle)
+    average_radius(z::FourierCircle)
 
 Norm defined as the L2 norm of the radius, i.e.
 ‖z‖² = 1/2πp ∫ ||z(θ) - a₀||^2 dθ
      = 1/2p ∑ₖ Tr(AₖᵀAₖ)
 """
-function LinearAlgebra.norm(z::FourierCircle)
+function average_radius(z::FourierCircle)
    norm_sq = 0.0;
    for i_A = 1:get_Na(z), i_p = 1:get_p(z)
       A_i = reshape(z[i_A, i_p], 2, 2);
@@ -183,11 +186,11 @@ function LinearAlgebra.norm(z::FourierCircle)
 end
 
 """
-   eval(z::FourierCircle, θ::AbstractVector{T}; i_circle::Integer=1) where {T}
+    evaluate(z::FourierCircle, θ::AbstractVector{T}; i_circle::Integer=1) where {T}
 
 Evaluate the `i_circle`th circle in the chain at a vector of points θ
 """
-function eval(z::FourierCircle, θ::AbstractVector{T}; i_circle::Integer=1) where {T}
+function evaluate(z::FourierCircle, θ::AbstractVector{T}; i_circle::Integer=1) where {T}
    Nθ = length(θ);
    x = zeros(T, 2, Nθ);
    ϕ = zeros(T, 2, Nθ);
@@ -206,10 +209,10 @@ function eval(z::FourierCircle, θ::AbstractVector{T}; i_circle::Integer=1) wher
 end
 
 """
-   deval(z::FourierCircle, θ::AbstractVector; i_circle::Integer=1)
+    deval(z::FourierCircle, θ::AbstractVector; i_circle::Integer=1)
 
 Evaluate the derivative of the `i_circle`th circle in the chain at a vector of
-points θ
+points `θ`
 """
 function deval(z::FourierCircle, θ::AbstractVector; i_circle::Integer=1)
    Nθ = length(θ);
@@ -230,7 +233,7 @@ function Base.similar(z::FourierCircle)
 end
 
 """
-   deriv(z::FourierCircle)
+    deriv(z::FourierCircle)
 
 Return the derivative of the FourierCircle, wrapped in a circle object
 """
@@ -306,7 +309,7 @@ end
 
 
 """
-   area(z::FourierCircle; i_circle=1)
+    area(z::FourierCircle; i_circle=1)
 
 Get the area of the circle.
 """

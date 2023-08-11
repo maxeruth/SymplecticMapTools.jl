@@ -1,5 +1,5 @@
 """
-   InvariantCircle
+    abstract type InvariantCircle
 
 An abstract type representing a chain of invariant circles zᵢ where zᵢ₊₁ = F(zᵢ)
 for i<=p and z₀ = F(zₚ₋₁). The main implementation of this type of FourierCircle,
@@ -8,63 +8,63 @@ but we are leaving it open for the potential implementations of circles.
 Implementations should have the following functions for immediate portability:
 
 Basic stuff
-  Initializer
+- Initializer
     `InvariantCircleImplementation(stuff)`
-  Similar
+- Similar
     `Base.similar(z::InvariantCircle)`
 
-Getters and Setters
-  Get number of unknown variables per circle
-    `get_N(z::InvariantCircle)`
-  Get period of circle
+Getters and Setters\\
+ - Get number of unknown variables per circle
+    `get_N(z::InvariantCircle)`\\
+ - Get period of circle
     `get_p(z::InvariantCircle)`
-  Get parameters (except τ)
+ - Get parameters (except τ)
     `get_a(z::InvariantCircle)`
-  Set parameters (except τ)
+ - Set parameters (except τ)
     `set_a!(z::InvariantCircle, a::AbstractArray)`
-  Get rotation number τ ∈ [0,2π)
+ - Get rotation number τ in [0,2π)
     `get_τ(z::InvariantCircle)`
-  Set τ
-    `set_τ!(z::InvariantCircle, τ::Number)``
+ - Set τ
+    `set_τ!(z::InvariantCircle, τ::Number)`
 
 Evaluation related routines
-  Evaluate the circle (see `(z::InvariantCircle)(θ, i_circle)`)
-    `eval(z::InvariantCircle, θ::AbstractVector; i_circle::Integer=1)``
-  Evaluate the derivative of the circle w.r.t. θ
-    `deval(z::InvariantCircle, θ::AbstractVector; i_circle::Integer=1)``
-  Get a basis Φ for z evaluated at Nθ equispaced points (requires linearity)
-    `get_Φ(z::InvariantCircle, Nθ::Integer; τ::Number=0.0)``
-  Evaluate the invariant circle on Φ
+- Evaluate the circle (see `(z::InvariantCircle)(θ, i_circle)`)
+    `evaluate(z::InvariantCircle, θ::AbstractVector; i_circle::Integer=1)`
+- Evaluate the derivative of the circle w.r.t. θ
+    `deval(z::InvariantCircle, θ::AbstractVector; i_circle::Integer=1)`
+- Get a basis Φ for z evaluated at Nθ equispaced points (requires linearity)
+    `get_Φ(z::InvariantCircle, Nθ::Integer; τ::Number=0.0)`
+- Evaluate the invariant circle on Φ
     `function grid_eval!(x::AbstractArray, z::InvariantCircle, Φ::AbstractArray;`
                         `i_circle=0)`
-  Evaluate the derivative of the invariant circle on Φ
+- Evaluate the derivative of the invariant circle on Φ
     `grid_deval!(dx::AbstractArray, z::InvariantCircle, Φ::AbstractArray;`
                 `i_circle=0)`
 
 Constraints (for Newton iteration)
-  Constrain the value at 0
+- Constrain the value at 0
     `fixed_θ0_constraint(z::InvariantCircle)`
 
 Other routines (useful for continuation)
-  Get average radius
-    `LinearAlgebra.norm(z::InvariantCircle)`
-  Get the area of the invariant circle
+- Get average radius
+    `LinearAlgebra.average_radius(z::InvariantCircle)`
+- Get the area of the invariant circle
     `area(z::InvariantCircle; i_circle=1, Ns = 100)`
 """
 abstract type InvariantCircle end
 include("./FourierCircle.jl")
 
 """
-   eval(z::InvariantCircle, θ::Number; i_circle::Integer=1)
+    evaluate(z::InvariantCircle, θ::Number; i_circle::Integer=1)
 
 Evaluate the `i_circle`th circle in `z` at the point `θ`
 """
-function eval(z::InvariantCircle, θ::Number; i_circle::Integer=1)
-   return eval(z,[θ]; i_circle);
+function evaluate(z::InvariantCircle, θ::Number; i_circle::Integer=1)
+   return evaluate(z,[θ]; i_circle);
 end
 
 """
-   deval(z::InvariantCircle, θ::Number; i_circle::Integer=1, nderiv::Integer=1)
+    deval(z::InvariantCircle, θ::Number; i_circle::Integer=1)
 
 Evaluate the derivative of the `i_circle`th circle in `z` at the point `θ`
 """
@@ -73,21 +73,21 @@ function deval(z::InvariantCircle, θ::Number; i_circle::Integer=1)
 end
 
 """
-   shifted_eval(z::InvariantCircle, θ::AbstractVector; i_circle::Integer=1)
+    shifted_eval(z::InvariantCircle, θ::AbstractVector; i_circle::Integer=1)
 
-Evaluate the `i_circle`th circle in `z` at the point `θ`, shifted by τ
+Evaluate the `i_circle`th circle in `z` at the point `θ`, shifted by `τ`
 """
 function shifted_eval(z::InvariantCircle, θ::AbstractVector; i_circle::Integer=1)
-   return eval(z, θ+get_τ(z); i_circle);
+   return evaluate(z, θ+get_τ(z); i_circle);
 end
 
 """
-   (z::InvariantCircle)(θ, i_circle)
+    (z::InvariantCircle)(θ, i_circle)
 
-Wrapper for `eval(z::InvariantCircle, θ::Number; i_circle::Integer=1)`
+Wrapper for `evaluate(z::InvariantCircle, θ::Number; i_circle::Integer=1)`
 """
 function (z::InvariantCircle)(θ, i_circle)
-    return eval(z, θ; i_circle)
+    return evaluate(z, θ; i_circle)
 end
 
 # This seems like overkill
@@ -302,17 +302,18 @@ function J_right_multiply(v::AbstractVector, J10, J11, Jii, J_off_diag, z)
 end
 
 """
-   get_circle_residual(F::Function, z::InvariantCircle; Nθ::Integer=0)
+    get_circle_residual(F::Function, z::InvariantCircle, Nθ::Integer=0)
 
-Get the KAM-like residual of a chain of p invariant circles.
-   Rᵢ₁ = z₁(θᵢ+τ) - F(zₚ(θᵢ))
-   Rᵢⱼ = zⱼ(θᵢ) - F(zⱼ₋₁(θᵢ)) for 2<=j<=p
+Get the KAM-like residual of a chain of p invariant circles.\\
+>   Rᵢ₁ = z₁(θᵢ+τ) - F(z_p(θᵢ))\\
+>   Rᵢⱼ = zⱼ(θᵢ) - F(zⱼ₋₁(θᵢ)) for 2<=j<=p
 
 Arguments:
 - `F`: Symplectic map
-- `z`: Invariant circle to take the residual of
+- `z`: Invariant circle
+- `Nθ`: Number of θ points where the residual is taken
 """
-function get_circle_residual(F::Function, z::InvariantCircle; Nθ::Integer=0)
+function get_circle_residual(F::Function, z::InvariantCircle, Nθ::Integer)
    # Get parameters
    p  = get_p(z);
    N = get_N(z);
@@ -350,18 +351,18 @@ function get_circle_residual(F::Function, z::InvariantCircle; Nθ::Integer=0)
 end
 
 """
-   gn_circle(FJ::Function, z::InvariantCircle; Nθ::Integer=0,
-             maxiter::Integer=10, rtol::Number=1e-8, verbose::Bool=false,
-             monitor::Function=(z, rnorm) -> nothing,
-             constraint::Function=fixed_θ0_constraint, λ::Number=0)
+    gn_circle(FJ::Function, z::InvariantCircle; Nθ::Integer=0,
+              maxiter::Integer=10, rtol::Number=1e-8, verbose::Bool=false,
+              monitor::Function=(z, rnorm) -> nothing,
+              constraint::Function=fixed_θ0_constraint, λ::Number=0)
 
 Find an invariant circle using Gauss-Newton with linesearch. Implemented with
-dense linear algebra. Many improvements can be made with FFTs.
+dense linear algebra (no FFTs yet).
 
 Arguments:
 - `z::InvariantCircle`: An initial connecting orbit guess, see
   `linear_initial_connecting_orbit`
-- `FJ::Function`: Function defined on ``\\mathbb{R}^2`` with signature
+- `FJ::Function`: Function defined on R² with signature
   `F(x), J(x) = FJ(x)` where `F` is the symplectic map and `J = dF/dx`
 - `ends::AbstractArray`: A 2p × 2 matrix containing the end periodic orbits
   `[x00, x10; F(x00), F(x10); ... ; F^(p-1)(x00), F^(p-1)(x10)]`
@@ -409,7 +410,7 @@ function gn_circle(FJ::Function, z::InvariantCircle; Nθ::Integer=0,
    rhs[1:1+p*N] = - J_left_multiply(vec(R), J10, J11, Jii, J_off_diag, z);
    rhs[end-1:end] .= μ0 - ( c[:, 1]*get_τ(z) + c[:, 2:end]*vec(get_a(z)) );
 
-   rnorm = norm(rhs)/norm(z); # TODO: Is this the right relative error?
+   rnorm = norm(rhs)/average_radius(z); # TODO: Is this the right relative error?
    normk = 2*rnorm;
 
    if verbose
@@ -444,7 +445,7 @@ function gn_circle(FJ::Function, z::InvariantCircle; Nθ::Integer=0,
          hessian!(H, J10, J11, Jii, J_off_diag, z)
          rhs[1:1+p*N] = - J_left_multiply(vec(R), J10, J11, Jii, J_off_diag, z);
          rhs[end-1:end] .= μ0 - ( c[:, 1]*get_τ(z) + c[:, 2:end]*vec(get_a(z)) );
-         normk = norm(rhs)/norm(z);
+         normk = norm(rhs)/average_radius(z);
 
          if (normk < rnorm)
             break

@@ -1,6 +1,6 @@
 ## Invariant Circles
 """
-   Plots.plot(z::InvariantCircle; kwargs...)
+    Plots.plot(z::InvariantCircle; kwargs...)
 
 Creates a plot of the invariant circle `z`. See `Plots.plot!(z::InvariantCircle)`
 for a list of keyword arguments.
@@ -26,18 +26,18 @@ function Plots.plot(z::InvariantCircle; N::Integer=100, label=nothing,
 end
 
 """
-   Plots.plot(p::Plots.Plot, z::InvariantCircle; kwargs...)
+    Plots.plot(p::Plots.Plot, z::InvariantCircle; kwargs...)
 
 Plots the invariant circle z on p.
 
 kwargs:
-- `N::Integer`: Number of ``\theta`` points used to plot each circle
+- `N::Integer`: Number of θ points used to plot each circle
 - `i_circle::Integer`: Which period of an island chain to plot. Default value
   of `0` plots all circles of an island chain.
 - `label`, `color`, `linewidth`, `linestyle`: see Plots.jl
 """
 function Plots.plot!(p::Plots.Plot, z::InvariantCircle; N::Integer=100,
-                     i_circle::Integer=0,, label=nothing, color=nothing,
+                     i_circle::Integer=0, label=nothing, color=nothing,
                      linewidth=1, linestyle=:solid)
    if i_circle == 0
       for i_p = 1:get_p(z)
@@ -57,14 +57,14 @@ function Plots.plot!(p::Plots.Plot, z::InvariantCircle; N::Integer=100,
 end
 
 """
-   parametric_plot(z::InvariantCircle; N::Integer=200, i_circle::Integer=1,
-                   linewidth=1, linestyle=:solid, label1="x", label2="y",
-                   xlabel="θ", plot_min_dθs=true, markersize=5)
+    parametric_plot(z::InvariantCircle; N::Integer=200, i_circle::Integer=1,
+                    linewidth=1, linestyle=:solid, label1="x", label2="y",
+                    xlabel="θ", plot_min_dθs=true, markersize=5)
 
 Parametric plot of an invariant circle.
 
 kwargs:
-- `N::Integer`: Number of ``\theta`` points used to plot each circle
+- `N::Integer`: Number of θ points used to plot each circle
 - `i_circle::Integer`: Which period of an island chain to plot
 """
 function parametric_plot(z::InvariantCircle; N::Integer=200, i_circle::Integer=1,
@@ -94,7 +94,7 @@ end
 
 ## Connecting Orbits
 """
-   Plots.plot(c::ConnectingOrbit; kwargs...)
+    Plots.plot(c::ConnectingOrbit; kwargs...)
 
 Creates a plot of the connecting orbit `c`. See `Plots.plot!(c::ConnectingOrbit)`
 for a list of keyword arguments.
@@ -115,7 +115,7 @@ function Plots.plot(c::ConnectingOrbit; N::Integer=50, i_circle=0,
 end
 
 """
-   Plots.plot!(p::Plots.Plot, c::ConnectingOrbit; kwargs...)
+    Plots.plot!(p::Plots.Plot, c::ConnectingOrbit; kwargs...)
 
 Creates a plot of the connecting orbit `c`.
 

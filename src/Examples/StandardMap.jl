@@ -20,7 +20,7 @@ end
     standard_map_FJ(k)
 
 Returns a function `FJ` that returns the Chirikov standard map and its
-derivative (i.e. `F, dF/dx = FJ(x)`) with parameter `k`.
+derivative (i.e. `F, dFdx = FJ(x)`) with parameter `k`.
 """
 function standard_map_FJ(k)
     function FJ(xin)
@@ -43,10 +43,11 @@ end
 """
     polar_map(;z0 = -0.5)
 
-Returns the polar map h:(θ,z)↦((z-z0)cos(2πθ), (z-z0)sin(2πθ)), as well as
-its derivative `HJ`, its inverse `hinv`, and its inverse derivative `HJinv`.
-Useful for applying extrapolation methods to maps on 𝕋×ℝ. Default value of
-`z0` is useful for the standard map on 𝕋×[0,1] with k=0.7.
+Returns the polar map \\
+> `h:(θ,z)->((z-z0)cos(2πθ), (z-z0)sin(2πθ))`\\
+as well as its derivative `HJ`, its inverse `hinv`, and its inverse derivative
+`HJinv`. Useful for applying extrapolation methods to maps on T×R. Default
+value of `z0` is useful for the standard map on T×[0,1] with k=0.7.
 """
 function polar_map(;z0 = -0.5)
     h = (x) -> [(x[2]-z0)*cos(2π*x[1]), (x[2]-z0)*sin(2π*x[1])]
