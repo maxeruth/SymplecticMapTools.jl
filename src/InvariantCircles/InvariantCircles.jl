@@ -302,7 +302,7 @@ function J_right_multiply(v::AbstractVector, J10, J11, Jii, J_off_diag, z)
 end
 
 """
-    get_circle_residual(F::Function, z::InvariantCircle, Nθ::Integer=0)
+    get_circle_residual(F::Function, z::InvariantCircle, Nθ::Integer)
 
 Get the KAM-like residual of a chain of p invariant circles.\\
 >   Rᵢ₁ = z₁(θᵢ+τ) - F(z_p(θᵢ))\\

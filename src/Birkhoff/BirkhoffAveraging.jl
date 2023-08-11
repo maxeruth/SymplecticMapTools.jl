@@ -88,8 +88,8 @@ Arguments:
   `h = (x)->x`)
 - `F`: The symplectic map
 - `x0`: The initial point of the trajectory
-- `rtol`: Required tolerance for convergence (1e-12 is good for exact maps,
-          inexact maps often require a looser tolerance)
+- `rtol`: Required tolerance for convergence (inexact maps often require a
+  looser tolerance)
 - `Kinit`: The length of the initial filter
 - `Kmax`: The maximum allowed filter size
 - `Kstride`: The amount `K` increases between applications of
@@ -110,20 +110,20 @@ Outputs:
   iteration
 """
 function adaptive_birkhoff_extrapolation(h::Function, F::Function,
-                    x0::AbstractVector; rtol::Number=1e-12, Kinit = 20,
+                    x0::AbstractVector; rtol::Number=1e-8, Kinit = 20,
                     Kmax = 100, Kstride=20, iterative::Bool=true,
                     Nfactor::Number=1)
     #
     d = length(h(x0));
     K = Kinit-Kstride
-    N = ceil(Int64, Nfactor*K / d);
+    N = ceil(Int64, 2*Nfactor*K / d);
     # println("K=$K, N=$N")
 
     c, sums, resid, xs, hs, history = 0,0,Inf,nothing,nothing,0;
     rnorm = Inf;
     while (K+Kstride <= Kmax) && (rnorm > rtol)
         K += Kstride;
-        N = ceil(Int64, Nfactor*K / d);
+        N = ceil(Int64, 2*Nfactor*K / d);
         # println("K=$K, N=$N")
 
         c, sums, resid, xs, hs, history = birkhoff_extrapolation(
@@ -323,6 +323,9 @@ Optional Arguments:
 - `ratcutoff`: Relative prominence needed by a linear mode to qualify as
   "important" for deciding whether the sequence is an island
 - `max_island_d`: Maximum denominator considered for islands.
+
+Output:
+- `z`: An invariant circle of type `FourierCircle`
 """
 function get_circle_info(hs::AbstractArray, c::AbstractArray;
                          rattol::Number=1e-8, ratcutoff::Number=1e-4,

@@ -15,6 +15,9 @@ using SparseArrays
 using Arpack
 using IterativeSolvers
 using Polynomials
+using Requires
+using Sobol
+using Colors
 
 # using LoopVectorization
 
@@ -30,6 +33,13 @@ include("./Birkhoff/BirkhoffAveraging.jl")
 include("./Examples/Examples.jl")
 
 
+function __init__()
+      @require Plots="91a5bcdd-55d7-5caf-9e0b-520d859cae80" include("../ext/SymplecticMapToolsPlotsExt.jl")
+      @require CairoMakie="13f3f980-e62b-5c42-98c6-ff1f3baf88f0" begin
+            include("../ext/cairomakie_utils.jl")
+            export lines_periodic!, plot_on_grid, poincare_plot
+      end
+end
 
 ## Export functions (comments give where they first show up)
 # InvariantCircles.jl, FourierCircle.jl
@@ -52,8 +62,7 @@ export vector_mpe_backslash, vector_mpe_iterative, ContFrac, big_cont_frac_eval,
 
 ## Extensions require Julia > 1.9
 # if !isdefined(Base, :get_extension)
-      include("../ext/SymplecticMapToolsPlotsExt.jl")
-      include("../ext/SymplecticMapToolsCairoMakieExt.jl")
+
 # end
 
 end
