@@ -3,7 +3,7 @@
 
 An abstract type representing a chain of invariant circles zᵢ where zᵢ₊₁ = F(zᵢ)
 for i<=p and z₀ = F(zₚ₋₁). The main implementation of this type of FourierCircle,
-but we are leaving it open for the potential implementations of circles.
+but other potential implementations of circles could exist.
 
 Implementations should have the following functions for immediate portability:
 

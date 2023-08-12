@@ -1,9 +1,15 @@
 using Documenter
 using SymplecticMapTools
+using Plots
+using CairoMakie
+
+include("./literate_examples.jl")
 
 makedocs(
     sitename = "SymplecticMapTools",
-    format = Documenter.HTML(),
+    format = Documenter.HTML(
+        prettyurls = get(ENV, "CI", nothing) == "true"
+    ),
     modules = [SymplecticMapTools]
 )
 

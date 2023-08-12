@@ -1,4 +1,16 @@
-## Invariant Circles
+"""
+   CairoMakie.lines!(ax, z::InvariantCircle; N::Integer=100, color=nothing,
+                     i_circle::Integer=0, linewidth=1)
+
+Plot the invariant circle `z` on the CairoMakie axis `ax`.
+
+Arguments:
+- `ax`: CairoMakie Axis object
+- `z`: The circle in R² to be plotted
+- `N`: Number of points to plot
+- `i_circle`: Which invariant circle of an island to plot. If 0, plot all
+- `color`, `linewidth`: see `CairoMakie.lines!`
+"""
 function CairoMakie.lines!(ax, z::InvariantCircle; N::Integer=100,
                            color=nothing, i_circle::Integer=0,
                            linewidth=1)
@@ -119,7 +131,17 @@ end
 
 
 """
+    poincare_plot(xb::AbstractVector, yb::AbstractVector, F::Function,
+                  Ninit::Integer, Niter::Integer; resolution=(800, 800),
+                  fontsize=25, xlabel="x", ylabel="y", xlims = nothing,
+                  ylims=nothing, markersize=3, title="Poincare Plot")
 
+Create a Poincare plot of a 2D map `F` in a rectangular region `xb`×`yb`.
+The Poincare plot uses `Ninit` trajectories of length `Niter`.
+
+Output:
+- `f`: The figure
+- `xs`: The trajectories used to make the figure
 """
 function poincare_plot(xb::AbstractVector, yb::AbstractVector,
                        F::Function, Ninit::Integer, Niter::Integer;

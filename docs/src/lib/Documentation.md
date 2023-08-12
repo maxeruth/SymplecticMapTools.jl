@@ -1,17 +1,27 @@
-# SymplecticMapTools.jl
+# Documentation
 
 Documentation for SymplecticMapTools.jl
 
 ## Contents
 
 ```@contents
-Pages = ["index.md"]
+Pages = [
+  "Documentation.md"
+]
 ```
 
 ## Index
 
 ```@index
-Pages = ["index.md"]
+Pages = [
+  "Documentation.md"
+]
+```
+
+## Periodic Orbits
+```@docs
+BFGS_periodic(::Function, ::AbstractVector, ::Integer)
+newton_periodic(::Function, ::AbstractVector, ::Integer)
 ```
 
 ## Invariant Circles
@@ -43,6 +53,7 @@ evaluate(::FourierCircle, ::AbstractVector)
 deval(::FourierCircle, ::AbstractVector)
 deriv(::FourierCircle)
 area
+circle_linear!
 ```
 
 ## Connecting Orbits
@@ -105,11 +116,18 @@ polar_map
 ```
 
 ## Plotting Routines: Plots
-```@autodocs
-Modules = [SymplecticMapTools.SymplecticMapToolsPlotsExt]
+```@docs
+Plots.plot(::InvariantCircle)
+Plots.plot!(::Plots.Plot, ::InvariantCircle)
+parametric_plot
+Plots.plot(::ConnectingOrbit)
+Plots.plot!(::Plots.Plot, ::ConnectingOrbit)
 ```
 
 ## Plotting Routines: CairoMakie
-```@autodocs
-Modules = [SymplecticMapTools.SymplecticMapToolsCairoMakieExt]
+```@docs
+CairoMakie.lines!(::Any, ::InvariantCircle)
+lines_periodic!(::Any, ::InvariantCircle, ::Function)
+plot_on_grid(::AbstractVector, ::AbstractVector, ::KernelLabel)
+poincare_plot(::AbstractVector, ::AbstractVector, ::Function, ::Integer, ::Integer)
 ```

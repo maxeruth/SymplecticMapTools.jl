@@ -371,3 +371,78 @@ function area_constraint(z::FourierCircle)
 
    return c
 end
+
+
+"""
+    circle_linear!(z::FourierCircle, FJ::Function, x::AbstractArray, h::Number)
+
+Fill `z`'s Fourier coefficients using a linearization about a stable periodic
+orbit. Useful for seeding continuation.
+
+Arguments:
+- `z`: An invariant circle
+- `FJ`: A function that returns the map and its derivative `F, dFdx = FJ(x)`
+- `x`: A periodic orbit of `F`
+- `h`: The average radius of the linearized invariant circle
+"""
+function circle_linear!(z::FourierCircle, FJ::Function, x::AbstractArray,
+                        h::Number)
+    p = get_p(z);
+    if (size(x, 2) != p)
+        println("circle_linear!: z should be the same period as x!")
+        return
+    end
+
+    for i_p = 1:p
+        z[0, i_p] = x[:, i_p];
+    end
+
+    # Get Jacobians
+    Js = zeros(2, 2, p)
+    J_full = Matrix(1.0*I, 2, 2);
+    for i_p = 1:p
+        Js[:,:,i_p] = FJ(x[:, i_p])[2];
+        Js[:,:,i_p] = Js[:,:,i_p]
+        J_full = Js[:,:,i_p] * J_full;
+    end
+
+
+    eigenJ = eigen(J_full)
+
+    # Choose eigenvector for positive orientation
+    if det([real(eigenJ.vectors[:,1]) imag(eigenJ.vectors[:,1])]) > 0
+        v = eigenJ.vectors[:,1]
+        λ = eigenJ.values[1]
+    else
+        v = eigenJ.vectors[:,2]
+        λ = eigenJ.values[2]
+    end
+
+    # Rotate and scale so z(0) = e1
+    ur = real(v)
+    ui = imag(v)
+    r = sqrt(ur[2]^2 + ui[2]^2)
+    c = ui[2]/r
+    s = -ur[2]/r
+    A1 = [ur ui] * [c -s ; s c]
+    A1[2,1] = 0.0
+
+    z[1,1] = A1;
+    z[1,1] = A1 .* h/average_radius(z)
+
+    # Return rotation angle and normalized A1 coefficient matrix
+    τ = atan(-imag(λ), real(λ))
+    set_τ!(z, τ);
+
+    # Fill the rest of the invariant circles
+    for i_p = 2:p
+        z[1, i_p] = Js[:, :, i_p-1]*reshape(z[1, i_p-1], 2, 2)#/(det(J_full)^(1/(2p)));
+    end
+
+    Na = get_Na(z);
+    for i_A=2:Na, i_p = 1:p
+        z[i_A, i_p] = zeros(4);
+    end
+
+    return τ, A1
+end
