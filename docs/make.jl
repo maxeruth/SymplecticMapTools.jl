@@ -1,9 +1,10 @@
 using Documenter
 using SymplecticMapTools
+using Pkg; Pkg.add("Plots"); Pkg.add("CairoMakie")
 using Plots
 using CairoMakie
 
-include("./literate_examples.jl")
+# include("./literate_examples.jl")
 
 makedocs(
     sitename = "SymplecticMapTools",
