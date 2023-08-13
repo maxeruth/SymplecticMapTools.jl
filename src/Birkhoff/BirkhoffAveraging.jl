@@ -116,14 +116,14 @@ function adaptive_birkhoff_extrapolation(h::Function, F::Function,
     #
     d = length(h(x0));
     K = Kinit-Kstride
-    N = ceil(Int64, 2*Nfactor*K / d);
+    N = ceil(Int, 2*Nfactor*K / d);
     # println("K=$K, N=$N")
 
     c, sums, resid, xs, hs, history = 0,0,Inf,nothing,nothing,0;
     rnorm = Inf;
     while (K+Kstride <= Kmax) && (rnorm > rtol)
         K += Kstride;
-        N = ceil(Int64, 2*Nfactor*K / d);
+        N = ceil(Int, 2*Nfactor*K / d);
         # println("K=$K, N=$N")
 
         c, sums, resid, xs, hs, history = birkhoff_extrapolation(
@@ -195,7 +195,7 @@ end
 
 function assign_modes(ω0, ωs, tol)
     N = length(ωs)
-    p = zeros(Int64, N);
+    p = zeros(Int, N);
     not_assigned = trues(N);
 
     for ii = 1:N÷2
@@ -287,7 +287,7 @@ function get_circle_coef(hs::AbstractArray, ω0::Number)
     den = denoms(ContFrac(ω0/2π));
     d, N = size(hs);
 
-    Nmode = min(floor(Int64, N/2), maximum(den))
+    Nmode = min(floor(Int, N/2), maximum(den))
     Nmode = mod(Nmode, 2) == 0 ? Nmode - 1 : Nmode
 
     # λ = exp(2π*im * ω0);

@@ -119,7 +119,7 @@ function block_hankel_linear_operator(ac, ar)
         res[:] = fast_block_hankel_multiply(plan, v; transpose = true);
     end
 
-    LinearOperator(Float64, plan.d*plan.N1, plan.N2, false, false, block_hankel_prod!,block_hankel_tprod!)
+    LinearOperator(Float, plan.d*plan.N1, plan.N2, false, false, block_hankel_prod!,block_hankel_tprod!)
 end
 
 ##  The "P" matrix (imposes time reversal symmetry)
@@ -157,7 +157,7 @@ function mpe_p(K::Integer)
         end
     end
 
-    LinearOperator(Float64, M, N, false, false, P_mul!, P_tmul!)
+    LinearOperator(Float, M, N, false, false, P_mul!, P_tmul!)
 end
 
 # Used for when c_0 is constrained rather than c_(±K-1)
@@ -191,5 +191,5 @@ function mpe_p_2(K::Integer)
         end
     end
 
-    LinearOperator(Float64, M, N, false, false, P_mul!, P_tmul!)
+    LinearOperator(Float, M, N, false, false, P_mul!, P_tmul!)
 end

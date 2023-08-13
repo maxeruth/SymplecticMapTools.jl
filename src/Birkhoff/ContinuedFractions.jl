@@ -57,15 +57,15 @@ Find a continued fraction representation of `x` to tolerance `tol`.
 """
 function ContFrac(x::Number; tol = 1e-15)
     N = 5000;
-    a = ones(Int64, N);
+    a = ones(Int, N);
     x = mod(x,1);
     x0 = x;
     for ii = 1:N
         x = 1/x;
-        a[ii] = floor(Int64, x);
+        a[ii] = floor(Int, x);
         x = mod(x,1);
 
-        approx = (typeof(x0) <: Float64) ? cont_frac_eval(a[1:ii]) : big_cont_frac_eval(a[1:ii])
+        approx = (typeof(x0) <: Float) ? cont_frac_eval(a[1:ii]) : big_cont_frac_eval(a[1:ii])
         if abs(x0 - approx) < tol
             return ContFrac(a[1:ii])
         end
@@ -99,7 +99,7 @@ function denoms(c::ContFrac)
     a = c.a;
     N = length(a);
 
-    D = zeros(Int64, N);
+    D = zeros(Int, N);
     for ii = 1:N
         x = partial_frac(c, ii);
         D[ii] = denominator(x);

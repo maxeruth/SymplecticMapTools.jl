@@ -1,8 +1,7 @@
 using SymplecticMapTools
+using Test
 # using CairoMakie
 # using Plots
-
-using Test
 using LinearAlgebra
 
 

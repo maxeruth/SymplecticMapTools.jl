@@ -163,7 +163,7 @@ function find_rational_τ(τ_z::Number, denom_max::Integer)
 
     τ = 2π*iota;
 
-    n_dif = round(Int64, (τ_z - τ)/(2π));
+    n_dif = round(Int, (τ_z - τ)/(2π));
     τ = τ + n_dif*2π;
     numerator = numerator + n_dif * denominator;
 
@@ -172,7 +172,7 @@ end
 
 function orbit_is_stable(unstable_orbit, FJ)
     d = size(unstable_orbit, 2);
-    J = Matrix{Float64}(I, 2, 2);
+    J = Matrix{Float}(I, 2, 2);
     for ii = 1:d
         F, Ji = FJ(unstable_orbit[:, ii]);
         J = Ji * J;
