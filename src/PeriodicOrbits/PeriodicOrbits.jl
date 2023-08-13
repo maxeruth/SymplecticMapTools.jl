@@ -58,6 +58,7 @@ Output:
 """
 function BFGS_periodic(FJ::Function, x::AbstractVector, q::Integer;
                        maxiter::Integer=50)
+    d = length(x)
     xs = zeros(d, q)
     xs[:,1] = x
     for k = d:q
@@ -76,6 +77,7 @@ function periodic_resid!(F::AbstractArray, J::AbstractArray, FJ::Function,
                          xs::AbstractArray, q::Integer)
     # Fill F with residuals of (F(k) = x(k+1)-F(x(k)) )
     # Fill diagonal of J with map Jacobian ( J(k,k) = JF(x(k)) )
+    d = size(xs, 1)
     for k = 1:q
         kn = mod(k,q)+1
         Fk, Jk = FJ(xs[:,k])
@@ -110,6 +112,7 @@ function newton_periodic(FJ::Function, x::AbstractVector, q::Integer;
                          maxiter::Integer=50, rtol::Number=1e-8,
                          verbose::Bool=false)
     # Initialize the orbit from guess point
+    d = length(x)
     xs = zeros(d, q)
     xs[:,1] = x
     for k = 2:q

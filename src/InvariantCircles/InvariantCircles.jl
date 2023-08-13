@@ -69,7 +69,7 @@ end
 Evaluate the derivative of the `i_circle`th circle in `z` at the point `θ`
 """
 function deval(z::InvariantCircle, θ::Number; i_circle::Integer=1)
-   return deval(z,[θ]; i_circle, nderiv)
+   return deval(z,[θ]; i_circle)
 end
 
 """
@@ -78,7 +78,7 @@ end
 Evaluate the `i_circle`th circle in `z` at the point `θ`, shifted by `τ`
 """
 function shifted_eval(z::InvariantCircle, θ::AbstractVector; i_circle::Integer=1)
-   return evaluate(z, θ+get_τ(z); i_circle);
+   return evaluate(z, θ .+ get_τ(z); i_circle);
 end
 
 """
@@ -351,28 +351,27 @@ function get_circle_residual(F::Function, z::InvariantCircle, Nθ::Integer)
 end
 
 """
-    gn_circle(FJ::Function, z::InvariantCircle; Nθ::Integer=0,
+    gn_circle(FJ::Function, z::InvariantCircle, Nθ::Integer;
               maxiter::Integer=10, rtol::Number=1e-8, verbose::Bool=false,
               monitor::Function=(z, rnorm) -> nothing,
               constraint::Function=fixed_θ0_constraint, λ::Number=0)
 
 Find an invariant circle using Gauss-Newton with linesearch. Implemented with
-dense linear algebra (no FFTs yet).
+dense linear algebra (no FFTs yet). Returns the number of iterations taken to
+converge. If an evaluation fails, returns `-1`. If the routine fails to
+converge, returns `-2`
 
 Arguments:
 - `z::InvariantCircle`: An initial connecting orbit guess, see
   `linear_initial_connecting_orbit`
 - `FJ::Function`: Function defined on R² with signature
   `F(x), J(x) = FJ(x)` where `F` is the symplectic map and `J = dF/dx`
-- `ends::AbstractArray`: A 2p × 2 matrix containing the end periodic orbits
-  `[x00, x10; F(x00), F(x10); ... ; F^(p-1)(x00), F^(p-1)(x10)]`
-- `Ns = 100`: Number of quadrature nodes for the least squares
-- `maxiters = 10`: Maximum number of Gauss Newton steps
+- `Nθ`: Number of quadrature nodes for the least squares
+- `maxiter = 10`: Maximum number of Gauss Newton steps
 - `rtol = 1e-8`: Stopping tolerance
 """
-function gn_circle(FJ::Function, z::InvariantCircle; Nθ::Integer=0,
+function gn_circle(FJ::Function, z::InvariantCircle, Nθ::Integer;
                    maxiter::Integer=10, rtol::Number=1e-8, verbose::Bool=false,
-                   monitor::Function=(z, rnorm) -> nothing,
                    constraint::Function=fixed_θ0_constraint,
                    λ::Number=0)
    # Indexing and allocation
@@ -403,7 +402,8 @@ function gn_circle(FJ::Function, z::InvariantCircle; Nθ::Integer=0,
    try
       resid!(R, J10, J11, Jii, J_off_diag, FJ, z, Φ, Φτ)
    catch
-      return maxiter+1
+      @warn "Resid! failed, probably due to FJ"
+      return -1
    end
 
    hessian!(H, J10, J11, Jii, J_off_diag, z)
@@ -436,7 +436,7 @@ function gn_circle(FJ::Function, z::InvariantCircle; Nθ::Integer=0,
             resid!(R, J10, J11, Jii, J_off_diag, FJ, z, Φ, Φτ)
          catch
             @warn "Resid! failed, probably due to FJ"
-            return maxiter+1
+            return -1
          end
 
          # TODO: Make an actual solver here. This can be really fast,
@@ -454,7 +454,6 @@ function gn_circle(FJ::Function, z::InvariantCircle; Nθ::Integer=0,
       end
       rnorm = normk
 
-      monitor(z, rnorm)
       if verbose
          println("gn_circle k=$k, rnorm=$rnorm, α=$α, z(0,1) = $(z(0,1))")
          println("   rhs[1] = $(rhs[1]),
@@ -465,15 +464,13 @@ function gn_circle(FJ::Function, z::InvariantCircle; Nθ::Integer=0,
          if verbose
              println("gn_circle converged in $k steps")
          end
-         monitor(z, rnorm)
          return k
       end
    end
 
 
-   monitor(z, rnorm)
    if verbose
       println("Warning: Did not converge in $(maxiter) steps: $(rnorm) > $(rtol)")
    end
-   return maxiter+1
+   return -2
 end

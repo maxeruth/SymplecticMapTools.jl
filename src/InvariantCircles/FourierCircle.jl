@@ -175,14 +175,17 @@ end
 Norm defined as the L2 norm of the radius, i.e.
 ‖z‖² = 1/2πp ∫ ||z(θ) - a₀||^2 dθ
      = 1/2p ∑ₖ Tr(AₖᵀAₖ)
+If `i_circle = 0`, takes the norm over all circles. If `i_circle != 0`, finds
+the average radius of a single circle.
 """
-function average_radius(z::FourierCircle)
+function average_radius(z::FourierCircle; i_circle::Integer = 0)
+   ps = (i_circle == 0) ? (1:get_p(z)) : [i_circle]
    norm_sq = 0.0;
-   for i_A = 1:get_Na(z), i_p = 1:get_p(z)
+   for i_A = 1:get_Na(z), i_p = ps
       A_i = reshape(z[i_A, i_p], 2, 2);
       norm_sq += tr(A_i'*A_i)
    end
-   return sqrt(norm_sq/(2*get_p(z)));
+   return sqrt(norm_sq/(2*sum(ps)));
 end
 
 """
@@ -383,7 +386,7 @@ Arguments:
 - `z`: An invariant circle
 - `FJ`: A function that returns the map and its derivative `F, dFdx = FJ(x)`
 - `x`: A periodic orbit of `F`
-- `h`: The average radius of the linearized invariant circle
+- `h`: The average radius of the first linearized invariant circle
 """
 function circle_linear!(z::FourierCircle, FJ::Function, x::AbstractArray,
                         h::Number)
@@ -428,7 +431,7 @@ function circle_linear!(z::FourierCircle, FJ::Function, x::AbstractArray,
     A1[2,1] = 0.0
 
     z[1,1] = A1;
-    z[1,1] = A1 .* h/average_radius(z)
+    z[1,1] = A1 .* h/average_radius(z; i_circle=1)
 
     # Return rotation angle and normalized A1 coefficient matrix
     τ = atan(-imag(λ), real(λ))
