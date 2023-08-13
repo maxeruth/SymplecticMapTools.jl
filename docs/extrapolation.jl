@@ -10,7 +10,7 @@
 #     y_{t+1} &= y_t - \frac{k}{2\pi} \sin(2\pi x_t).
 # \end{aligned}
 # ```
-# 
+#
 # For this example, we will use $k=0.7$, which gives a nice mix of chaos, invariant circles, and islands.
 
 using Revise
@@ -18,7 +18,7 @@ using SymplecticMapTools
 using CairoMakie
 using LinearAlgebra
 
-#- 
+#-
 
 k_sm = 0.7
 F = standard_map_F(k_sm)
@@ -28,7 +28,7 @@ f
 
 # The extrapolation method presented here has two steps:
 # 1. Perform an extrapolation method (minimal polynomial extrapolation (MPE) or reduced rank extrapolation (RRE)). The extrapolation method returns a filter for the sequence. When the linear model is applied to the sequence, it can extract the mean (also known as the Birkhoff ergodic average). Additionally, if the extrapolation returns a low residual, this can be used as an indicator that the trajectory is integrable (i.e. it is an invariant circle or island) rather than chaotic.
-# 2. If the trajectory is classified as integrable, we can extract frequency information from the learned filter. This can be used to recover the rotation number, as well as the Fourier modes of the invariant structures. 
+# 2. If the trajectory is classified as integrable, we can extract frequency information from the learned filter. This can be used to recover the rotation number, as well as the Fourier modes of the invariant structures.
 #
 # As first step, we choose some initial points. The above plot was made using initial points sampled from a `SoboloSeq` (see [Sobol.jl](https://github.com/JuliaMath/Sobol.jl)). So, we will simply use those:
 
@@ -44,14 +44,14 @@ ax = Axis(f[1,1], xlabel = "x", ylabel = "y", title = "Initial points");
 scatter!(x_init)
 f
 
-# Then, we find extrapolated models at each of these points. The model will be obtained via the `adaptive_birkhoff_extrapolation` function. 
-# 
+# Then, we find extrapolated models at each of these points. The model will be obtained via the `adaptive_birkhoff_extrapolation` function.
+#
 # However, we note that there is a detail that must be considered with the standard map. The extrapolation code is written for continuous signals. The standard map is continuous on $\mathbb{T} \times \mathbb{R}$, but it is not on $\mathbb{R}^2$. The algorithms assume that the signal is continuous in $\mathbb{R}^2$, however, so we need to map the space to an appropriate one. For this, we will use the observable function
 # ```
-# h(x, y) = \begin{pmatrix} 
+# h(x, y) = \begin{pmatrix}
 # \left(y + \frac{1}{2} \right)\cos(2\pi x) \\
 # \left(y + \frac{1}{2} \right)\sin(2\pi x)
-# \end{pmatrix} 
+# \end{pmatrix}
 # ```
 
 rtol = 1e-8
@@ -118,7 +118,6 @@ f
 # In the above plot, we have plotted the trajectories on the found invariant circles. We see that the trajectories qualitatively match well. Additionally, we can use the function `get_circle_residual` to find a validation error. This is useful in automatically identifying cases where the found Fourier series is incorrect.
 
 N_norm = 6;
-res = 0
 errs_validation = zeros(Ncircle)
 for ii = (1:Ncircle)[rnorms .< rtol]
     res = get_circle_residual((x) -> h(F(hinv(x))), zs[ii], N_norm)
@@ -126,8 +125,7 @@ for ii = (1:Ncircle)[rnorms .< rtol]
 end
 ind = rnorms .< rtol
 
-
-println("Invariant circle validation errors: 
+println("Invariant circle validation errors:
    smallest --- $(minimum(errs_validation[ind]))
    largest  --- $(maximum(errs_validation[ind]))
    median   --- $(sort!(errs_validation[ind])[sum(ind)÷2])

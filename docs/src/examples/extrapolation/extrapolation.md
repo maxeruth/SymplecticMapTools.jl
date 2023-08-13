@@ -17,20 +17,21 @@ We will show how sequence extrapolation can be used for finding invariant circle
 
 For this example, we will use $k=0.7$, which gives a nice mix of chaos, invariant circles, and islands.
 
-````@example extrapolation
+````julia
 using Revise
 using SymplecticMapTools
 using CairoMakie
 using LinearAlgebra
 ````
 
-````@example extrapolation
+````julia
 k_sm = 0.7
 F = standard_map_F(k_sm)
 
 f, xs_pp = poincare_plot([0,1], [0,1], F, 500, 1000, title="Standard Map, k = $(k_sm)")
 f
 ````
+![](extrapolation-5.png)
 
 The extrapolation method presented here has two steps:
 1. Perform an extrapolation method (minimal polynomial extrapolation (MPE) or reduced rank extrapolation (RRE)). The extrapolation method returns a filter for the sequence. When the linear model is applied to the sequence, it can extract the mean (also known as the Birkhoff ergodic average). Additionally, if the extrapolation returns a low residual, this can be used as an indicator that the trajectory is integrable (i.e. it is an invariant circle or island) rather than chaotic.
@@ -38,7 +39,7 @@ The extrapolation method presented here has two steps:
 
 As first step, we choose some initial points. The above plot was made using initial points sampled from a `SoboloSeq` (see [Sobol.jl](https://github.com/JuliaMath/Sobol.jl)). So, we will simply use those:
 
-````@example extrapolation
+````julia
 Ncircle = 100
 
 resolution=(800, 800)
@@ -51,6 +52,7 @@ ax = Axis(f[1,1], xlabel = "x", ylabel = "y", title = "Initial points");
 scatter!(x_init)
 f
 ````
+![](extrapolation-7.png)
 
 Then, we find extrapolated models at each of these points. The model will be obtained via the `adaptive_birkhoff_extrapolation` function.
 
@@ -62,7 +64,7 @@ h(x, y) = \begin{pmatrix}
 \end{pmatrix}
 ```
 
-````@example extrapolation
+````julia
 rtol = 1e-8
 Kinit = 50
 Kstride = 50
@@ -81,7 +83,21 @@ for ii = 1:Ncircle
 end
 ````
 
-````@example extrapolation
+````
+ii = 10/100
+ii = 20/100
+ii = 30/100
+ii = 40/100
+ii = 50/100
+ii = 60/100
+ii = 70/100
+ii = 80/100
+ii = 90/100
+ii = 100/100
+
+````
+
+````julia
 markersize=5
 f = Figure(;resolution, fontsize);
 ax = Axis(f[1,1], xlabel="x", ylabel="y");
@@ -96,21 +112,34 @@ end
 axislegend(ax, merge=true)
 f
 ````
+![](extrapolation-10.png)
 
 The above is a plot which shows the trajectories as black if the extrapolation algorithm converged to the tolerance of `1e-7` and red if they did not. We see that the red trajectories did not converge quickly, and they correlate strongly with whether the trajectory is in chaos. We can check the filter length for the values of $K$ we iterated over:
 
-````@example extrapolation
+````julia
 for Ki = Kinit:Kstride:Kmax
     Ksum = sum(Ks .== Ki)
     println("Number of trajectories for K=$(Ki) is $(Ksum)")
 end
 ````
 
+````
+Number of trajectories for K=50 is 33
+Number of trajectories for K=100 is 23
+Number of trajectories for K=150 is 9
+Number of trajectories for K=200 is 8
+Number of trajectories for K=250 is 1
+Number of trajectories for K=300 is 3
+Number of trajectories for K=350 is 2
+Number of trajectories for K=400 is 21
+
+````
+
 We see that most trajectories are classified when $K \leq 200$, with only a few being classified later. Additionally, those that are mis-classified tend to be at the edges of island chains or chaos.
 
 Now, we turn to finding models for the invariant circles. We do this via the function `get_circle_info`.
 
-````@example extrapolation
+````julia
 zs = Vector{FourierCircle}(undef, Ncircle)
 for ii = (1:Ncircle)[rnorms .< rtol]
     zs[ii] = get_circle_info(hs[ii], cs[ii])
@@ -119,7 +148,7 @@ end
 
 Additionally, for the special case where we need to work with observations from $h : \mathbb{T}\times\mathbb{R} \to \mathbb{R}^2$, we have a plotting routine that can be used to plot the invariant circles in $\mathbb{R}^2$ given an inverse function $h^{-1}$. This is done in the following:
 
-````@example extrapolation
+````julia
 f = Figure(;resolution, fontsize);
 ax = Axis(f[1,1], xlabel="x", ylabel="y")
 xlims!(0, 1); ylims!(0,1)
@@ -130,10 +159,11 @@ end
 axislegend(ax, merge=true)
 f
 ````
+![](extrapolation-16.png)
 
 In the above plot, we have plotted the trajectories on the found invariant circles. We see that the trajectories qualitatively match well. Additionally, we can use the function `get_circle_residual` to find a validation error. This is useful in automatically identifying cases where the found Fourier series is incorrect.
 
-````@example extrapolation
+````julia
 N_norm = 6;
 res = 0
 errs_validation = zeros(Ncircle)
@@ -149,6 +179,17 @@ println("Invariant circle validation errors:
    largest  --- $(maximum(errs_validation[ind]))
    median   --- $(sort!(errs_validation[ind])[sum(ind)÷2])
 ")
+````
+
+````
+┌ Warning: Assignment to `res` in soft scope is ambiguous because a global variable by the same name exists: `res` will be treated as a new local. Disambiguate by using `local res` to suppress this warning or `global res` to assign to the existing global variable.
+└ @ /mnt/c/Users/mer335/Documents/GitHub/SymplecticMapTools.jl/docs/src/examples/extrapolation/extrapolation.md:5
+Invariant circle validation errors:
+   smallest --- 2.1654113538231883e-15
+   largest  --- 2.8058773742602675e-5
+   median   --- 3.4730759016701472e-9
+
+
 ````
 
 ---
