@@ -172,7 +172,7 @@ end
 
 function orbit_is_stable(unstable_orbit, FJ)
     d = size(unstable_orbit, 2);
-    J = Matrix{Float}(I, 2, 2);
+    J = Matrix{Float64}(I, 2, 2);
     for ii = 1:d
         F, Ji = FJ(unstable_orbit[:, ii]);
         J = Ji * J;

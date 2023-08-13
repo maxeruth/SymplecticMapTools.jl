@@ -65,7 +65,7 @@ function ContFrac(x::Number; tol = 1e-15)
         a[ii] = floor(Int, x);
         x = mod(x,1);
 
-        approx = (typeof(x0) <: Float) ? cont_frac_eval(a[1:ii]) : big_cont_frac_eval(a[1:ii])
+        approx = (typeof(x0) <: Float64) ? cont_frac_eval(a[1:ii]) : big_cont_frac_eval(a[1:ii])
         if abs(x0 - approx) < tol
             return ContFrac(a[1:ii])
         end
