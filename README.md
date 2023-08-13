@@ -16,4 +16,4 @@ This package uses Requires for plotting. You must load CairoMakie or Plots separ
 # Contact
 For any questions, email [mer335@cornell.edu](mailto:mer335@cornell.edu)
 
-[![Build Status](https://github.com/maxeruth/SymplecticMapTools.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/maxeruth/SymplecticMapTools.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/maxeruth/SymplecticMapTools.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/maxeruth/SymplecticMapTools.jl/actions/workflows/CI.yml?query=branch%3Amain) [![codecov](https://codecov.io/gh/maxeruth/SymplecticMapTools.jl/branch/main/graph/badge.svg?token=5L40XV3NZ8)](https://codecov.io/gh/maxeruth/SymplecticMapTools.jl)
