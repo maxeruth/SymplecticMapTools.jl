@@ -22,8 +22,16 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 [extensions]
 
 [compat]
+Arpack = "0.5"
+CairoMakie = "0.10"
 Colors = "0.12"
 IterativeSolvers = "0.9"
+Polynomials = "3"
+FFTW = "1"
+Plots = "1"
+Optim = "1"
+Requires = "1"
+Sobol = "1"
 julia = "1"
 
 [extras]
