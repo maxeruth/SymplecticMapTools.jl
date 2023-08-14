@@ -3,11 +3,13 @@ EditURL = "../../../extrapolation.jl"
 ```
 
 # Extrapolation Example
-## Max Ruth
 
-This is an example of `SymplecticMapTools.jl`. The example exists both as a webpage and as a notebook. To find the notebook, simply go to the `/examples/` folder in the package directory.
+This is an example of `SymplecticMapTools.jl`. The example exists both as a
+webpage and as a notebook. To find the notebook, simply go to the `/examples/`
+folder in the package directory.
 
-We will show how sequence extrapolation can be used for finding invariant circles of the Chirikov standard map. The standard map is given by
+We will show how sequence extrapolation can be used for finding invariant
+circles of the Chirikov standard map. The standard map is given by
 ```math
 \begin{aligned}
     x_{t+1} &= x_t + y_{t+1} \mod 1, \\
@@ -15,7 +17,8 @@ We will show how sequence extrapolation can be used for finding invariant circle
 \end{aligned}
 ```
 
-For this example, we will use $k=0.7$, which gives a nice mix of chaos, invariant circles, and islands.
+For this example, we will use $k=0.7$, which gives a nice mix of chaos,
+invariant circles, and islands.
 
 ````julia
 using Revise
@@ -34,10 +37,21 @@ f
 ![](extrapolation-5.png)
 
 The extrapolation method presented here has two steps:
-1. Perform an extrapolation method (minimal polynomial extrapolation (MPE) or reduced rank extrapolation (RRE)). The extrapolation method returns a filter for the sequence. When the linear model is applied to the sequence, it can extract the mean (also known as the Birkhoff ergodic average). Additionally, if the extrapolation returns a low residual, this can be used as an indicator that the trajectory is integrable (i.e. it is an invariant circle or island) rather than chaotic.
-2. If the trajectory is classified as integrable, we can extract frequency information from the learned filter. This can be used to recover the rotation number, as well as the Fourier modes of the invariant structures.
+1. Perform an extrapolation method (minimal polynomial extrapolation (MPE) or
+   reduced rank extrapolation (RRE)). The extrapolation method returns a
+   filter for the sequence. When the linear model is applied to the sequence,
+   it can extract the mean (also known as the Birkhoff ergodic average).
+   Additionally, if the extrapolation returns a low residual, this can be used
+   as an indicator that the trajectory is integrable (i.e. it is an invariant
+   circle or island) rather than chaotic.
+2. If the trajectory is classified as integrable, we can extract frequency
+   information from the learned filter. This can be used to recover the
+   rotation number, as well as the Fourier modes of the invariant structures.
 
-As first step, we choose some initial points. The above plot was made using initial points sampled from a `SoboloSeq` (see [Sobol.jl](https://github.com/JuliaMath/Sobol.jl)). So, we will simply use those:
+As first step, we choose some initial points. The above plot was made using
+initial points sampled from a `SoboloSeq` (see
+[Sobol.jl](https://github.com/JuliaMath/Sobol.jl)). So, we will simply use
+those:
 
 ````julia
 Ncircle = 100
@@ -54,9 +68,15 @@ f
 ````
 ![](extrapolation-7.png)
 
-Then, we find extrapolated models at each of these points. The model will be obtained via the `adaptive_birkhoff_extrapolation` function.
+Then, we find extrapolated models at each of these points. The model will be
+obtained via the `adaptive_birkhoff_extrapolation` function.
 
-However, we note that there is a detail that must be considered with the standard map. The extrapolation code is written for continuous signals. The standard map is continuous on $\mathbb{T} \times \mathbb{R}$, but it is not on $\mathbb{R}^2$. The algorithms assume that the signal is continuous in $\mathbb{R}^2$, however, so we need to map the space to an appropriate one. For this, we will use the observable function
+However, we note that there is a detail that must be considered with the
+standard map. The extrapolation code is written for continuous signals. The
+standard map is continuous on $\mathbb{T} \times \mathbb{R}$, but it is not on
+$\mathbb{R}^2$. The algorithms assume that the signal is continuous in
+$\mathbb{R}^2$, however, so we need to map the space to an appropriate one.
+For this, we will use the observable function
 ```
 h(x, y) = \begin{pmatrix}
 \left(y + \frac{1}{2} \right)\cos(2\pi x) \\
@@ -165,14 +185,12 @@ In the above plot, we have plotted the trajectories on the found invariant circl
 
 ````julia
 N_norm = 6;
-res = 0
 errs_validation = zeros(Ncircle)
 for ii = (1:Ncircle)[rnorms .< rtol]
     res = get_circle_residual((x) -> h(F(hinv(x))), zs[ii], N_norm)
     errs_validation[ii] = norm(res)/sqrt(length(res))
 end
 ind = rnorms .< rtol
-
 
 println("Invariant circle validation errors:
    smallest --- $(minimum(errs_validation[ind]))
@@ -182,8 +200,6 @@ println("Invariant circle validation errors:
 ````
 
 ````
-┌ Warning: Assignment to `res` in soft scope is ambiguous because a global variable by the same name exists: `res` will be treated as a new local. Disambiguate by using `local res` to suppress this warning or `global res` to assign to the existing global variable.
-└ @ /mnt/c/Users/mer335/Documents/GitHub/SymplecticMapTools.jl/docs/src/examples/extrapolation/extrapolation.md:5
 Invariant circle validation errors:
    smallest --- 2.1654113538231883e-15
    largest  --- 2.8058773742602675e-5
