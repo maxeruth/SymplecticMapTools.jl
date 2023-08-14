@@ -1,9 +1,11 @@
 # # Extrapolation Example
-# ## Max Ruth
 
-# This is an example of `SymplecticMapTools.jl`. The example exists both as a webpage and as a notebook. To find the notebook, simply go to the `/examples/` folder in the package directory.
+# This is an example of `SymplecticMapTools.jl`. The example exists both as a
+# webpage and as a notebook. To find the notebook, simply go to the `/examples/`
+# folder in the package directory.
 #
-# We will show how sequence extrapolation can be used for finding invariant circles of the Chirikov standard map. The standard map is given by
+# We will show how sequence extrapolation can be used for finding invariant
+# circles of the Chirikov standard map. The standard map is given by
 # ```math
 # \begin{aligned}
 #     x_{t+1} &= x_t + y_{t+1} \mod 1, \\
@@ -11,7 +13,8 @@
 # \end{aligned}
 # ```
 #
-# For this example, we will use $k=0.7$, which gives a nice mix of chaos, invariant circles, and islands.
+# For this example, we will use $k=0.7$, which gives a nice mix of chaos,
+# invariant circles, and islands.
 
 using Revise
 using SymplecticMapTools
@@ -27,10 +30,21 @@ f, xs_pp = poincare_plot([0,1], [0,1], F, 500, 1000, title="Standard Map, k = $(
 f
 
 # The extrapolation method presented here has two steps:
-# 1. Perform an extrapolation method (minimal polynomial extrapolation (MPE) or reduced rank extrapolation (RRE)). The extrapolation method returns a filter for the sequence. When the linear model is applied to the sequence, it can extract the mean (also known as the Birkhoff ergodic average). Additionally, if the extrapolation returns a low residual, this can be used as an indicator that the trajectory is integrable (i.e. it is an invariant circle or island) rather than chaotic.
-# 2. If the trajectory is classified as integrable, we can extract frequency information from the learned filter. This can be used to recover the rotation number, as well as the Fourier modes of the invariant structures.
+# 1. Perform an extrapolation method (minimal polynomial extrapolation (MPE) or
+#    reduced rank extrapolation (RRE)). The extrapolation method returns a
+#    filter for the sequence. When the linear model is applied to the sequence,
+#    it can extract the mean (also known as the Birkhoff ergodic average).
+#    Additionally, if the extrapolation returns a low residual, this can be used
+#    as an indicator that the trajectory is integrable (i.e. it is an invariant
+#    circle or island) rather than chaotic.
+# 2. If the trajectory is classified as integrable, we can extract frequency
+#    information from the learned filter. This can be used to recover the
+#    rotation number, as well as the Fourier modes of the invariant structures.
 #
-# As first step, we choose some initial points. The above plot was made using initial points sampled from a `SoboloSeq` (see [Sobol.jl](https://github.com/JuliaMath/Sobol.jl)). So, we will simply use those:
+# As first step, we choose some initial points. The above plot was made using
+# initial points sampled from a `SoboloSeq` (see
+# [Sobol.jl](https://github.com/JuliaMath/Sobol.jl)). So, we will simply use
+# those:
 
 Ncircle = 100
 
@@ -44,9 +58,15 @@ ax = Axis(f[1,1], xlabel = "x", ylabel = "y", title = "Initial points");
 scatter!(x_init)
 f
 
-# Then, we find extrapolated models at each of these points. The model will be obtained via the `adaptive_birkhoff_extrapolation` function.
+# Then, we find extrapolated models at each of these points. The model will be
+# obtained via the `adaptive_birkhoff_extrapolation` function.
 #
-# However, we note that there is a detail that must be considered with the standard map. The extrapolation code is written for continuous signals. The standard map is continuous on $\mathbb{T} \times \mathbb{R}$, but it is not on $\mathbb{R}^2$. The algorithms assume that the signal is continuous in $\mathbb{R}^2$, however, so we need to map the space to an appropriate one. For this, we will use the observable function
+# However, we note that there is a detail that must be considered with the
+# standard map. The extrapolation code is written for continuous signals. The
+# standard map is continuous on $\mathbb{T} \times \mathbb{R}$, but it is not on
+# $\mathbb{R}^2$. The algorithms assume that the signal is continuous in
+# $\mathbb{R}^2$, however, so we need to map the space to an appropriate one.
+# For this, we will use the observable function
 # ```
 # h(x, y) = \begin{pmatrix}
 # \left(y + \frac{1}{2} \right)\cos(2\pi x) \\
