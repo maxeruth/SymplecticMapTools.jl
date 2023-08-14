@@ -1,7 +1,7 @@
 [![Build Status](https://github.com/maxeruth/SymplecticMapTools.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/maxeruth/SymplecticMapTools.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![codecov](https://codecov.io/gh/maxeruth/SymplecticMapTools.jl/branch/main/graph/badge.svg?token=5L40XV3NZ8)](https://codecov.io/gh/maxeruth/SymplecticMapTools.jl)
-[![][docs-dev-img]][https://maxeruth.github.io/SymplecticMapTools.jl/dev/]
-[![][docs-stable-img]][https://maxeruth.github.io/SymplecticMapTools.jl/stable/]
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://maxeruth.github.io/SymplecticMapTools.jl/dev/)
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://maxeruth.github.io/SymplecticMapTools.jl/stable/)
 
 # SymplecticMapTools.jl
 This is a package devoted to different tools for analyzing (primarily 2D)
