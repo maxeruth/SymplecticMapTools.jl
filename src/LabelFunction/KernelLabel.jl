@@ -10,6 +10,15 @@ end
 
 Sobol sample `N` points in the rectangle `xb` × `yb`. Then, evaluate `F` at
 each point. Input can be used for `kernel_eigs` and `kernel_bvp`
+
+Arguments:
+- `F`: The symplectic map from the state space to itself
+- `N`: The number of points to be sampled
+- `xb` × `yb`: The 2-vector bounds of the rectangle to be sampled
+
+Output:
+- `xs`: A `2` × `2N` array of samples compatable with `kernel_eigs` and
+  `kernel_bvp`, of the form `[x_1, F(x_1), x_2, F(x_2), ...]`
 """
 function kernel_sample_F(F::Function, N::Integer, xb::AbstractVector,
                          yb::AbstractVector)
@@ -27,26 +36,63 @@ function kernel_sample_F(F::Function, N::Integer, xb::AbstractVector,
     return reshape(xs[:,:,:], 2, 2N);
 end
 
-# Windowing function that is nearly ϵ at 0, and nearly E as |x| → ∞. The bounds of the window are given by xb. w is half the width, defining how
-# fast the tanh decays
-function tanh_window(x, xb, ϵ, E, w)
-    μ1 = xb[1] - w;
-    μ2 = xb[2] + w;
+"""
+    window_weight(xs::AbstractArray, lims::AbstractVector, α::Number;
+                       ind::Integer=2)
 
-    ϵ + ((E-ϵ)/2) * (2 + tanh((x - μ2)/w) + tanh(-(x - μ1)/w))
+A simple boundary weighting function for `kernel_eigs` and `kernel_bvp`. Returns
+a weight that is approximately 1 outside of `lims` and 0 inside via the sum of
+two logistic functions.
+
+Arguments:
+- `xs`: A `d` × `N` array of points, where `d` is the size of the phase space
+  and `N` is the number of points.
+- `lims`: A 2-vector giving the interval where the weight is approximately 0
+- `α`: The length scale of the logistic functions (typically small relative to
+  the size of the domain)
+- `ind=2`: The index over which the window is applied. Defaults to `2` for
+  maps on T×R (such as the standard map)
+
+Output:
+- `w`: A `N`-vector with the window weights
+"""
+function window_weight(xs::AbstractArray, xlims::AbstractVector, α::Number;
+                       ind::Integer=2)
+    f = (x) -> (1. / (1. + exp((xlims[2] - x[ind])/α)) +
+                1. / (1. + exp(-(xlims[1] - x[ind])/α)))
+    [f(x) for x = eachcol(xs)]
 end
 
-function window_weights(xs::AbstractArray, xb, yb, w::Number,
-                        xbuf::Number, ybuf::Number, ϵ::Number, E::Number)
-    f = (x) -> E - (E-ϵ)*(tanh_window(x[1], xb .+ (-xbuf/2, xbuf/2), 1., 0., w)*
-                          tanh_window(x[2], yb .+ (-ybuf/2, ybuf/2), 1., 0., w));
-    return [f(x) for x in eachcol(xs)]
+"""
+    rectangular_window_weight(xs::AbstractArray, xlims::AbstractVector,
+                              ylims::AbstractVector, α::Number)
+
+A simple boundary weighting function for `kernel_eigs` and `kernel_bvp`. Returns
+a weight that is approximately 1 outside of `xlims` × `ylims` and 0 inside via
+the a function of logistic functions.
+
+Arguments:
+- `xs`: A `d` × `N` array of points, where `d` is the size of the phase space
+  and `N` is the number of points.
+- `xlims` and `ylims`: 2-vectors giving the rectangle where the weight is
+  approximately 0
+- `α`: The length scale of the logistic functions (typically small relative to
+  the size of the domain)
+
+Output:
+- `w`: A `N`-vector with the window weights
+"""
+function rectangular_window_weight(xs::AbstractArray, xlims::AbstractVector,
+                                   ylims::AbstractVector, α::Number)
+    w1 = window_weight(xs, xlims, α; ind=1)
+    w2 = window_weight(xs, ylims, α; ind=2)
+    return 1. .- (1. .- w1).*(1. .- w2)
 end
 
 
 """
-    kernel_eigs(xs::AbstractArray, ϵ::Number, nev::Integer; σ::Number=0.,
-                kernel::Symbol=:SquaredExponential, W = 0. * I,
+    kernel_eigs(xs::AbstractArray, ϵ::Number, nev::Integer, σ::Number,
+                boundary_weights::Vector; kernel::Symbol=:SquaredExponential,
                 zero_mean = false, check = 1)
 
 Solve the the invariant eigenvalue problem, given by the Rayleigh quotient\\
@@ -56,9 +102,7 @@ where
 - `‖Kc‖²_bd` is a norm penalizing boundary violation
 - `‖c‖²_k` is the smoothing kernel norm
 - `‖Kc‖²` is the ℓ² norm of the points
-Outputs eigenvalues `λs`, eigenvectors `vs`, and kernel label `k`. Use
-`set_c!(k, vs[:,n])` to load the `n`th eigenvector into `k`. By default, `k`
-stores the lowest order eigenvector. The eigenvalue problem is solved via Arpack
+The eigenvalue problem is solved via `Arpack.jl`
 
 Arguments:
 - `xs`: interpolation points of size d × 2N, where xs[:, N+1:2N] = F.(xs[:, 1:N])
@@ -73,6 +117,12 @@ Arguments:
   boundary_weights=0
 - `check = 1`: See `Arpack.eigs`. If 1, return all of the converged eigenvectors
   and eigenvalues. If 0, throw an error instead.
+
+Output:
+- `λs`: The eigenvalues
+- `vs`: The eigenvectors
+- `k`: The kernel label. Use `set_c!(k, vs[:,n])` to load the `n`th eigenvector
+  into `k`. By default, `k` stores the lowest order eigenvector.
 """
 function kernel_eigs(xs::AbstractArray, ϵ::Number, nev::Integer, σ::Number,
                      boundary_weights::Vector; kernel::Symbol=:SquaredExponential,
@@ -96,14 +146,13 @@ function kernel_eigs(xs::AbstractArray, ϵ::Number, nev::Integer, σ::Number,
     # Get constraint matrix
     i1 = 1:2:2N; i2 = 2:2:2N;
     GPtL_inv = L[ip[i1], :] - L[ip[i2], :]
-    GPtL_bd = L[ip[boundary_points], :];
     v_mean = ones(2N) ./ sqrt(2N);
     GPtL_mean = zero_mean ? (ones(2N)'*L ./ sqrt(2N))' : zeros(0, chol.rank)
 
     # Find Eigenvalue problem matrices
     A = Symmetric(L'*L)
 
-    GPtL = vcat(GPtL_inv, GPtL_bd, GPtL_mean);
+    GPtL = vcat(GPtL_inv, GPtL_mean);
     W = Diagonal(boundary_weights)
     B = Symmetric(GPtL'*GPtL + ϵ*I + L[ip, :]'*W*L[ip, :])
 

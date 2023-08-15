@@ -59,8 +59,9 @@ export InvariantCircle, FourierCircle, get_Na, get_p, get_a0, set_a0!, get_Am,
 export ConnectingOrbit, get_am, set_am!, linear_initial_connecting_orbit,
        gn_connecting!
 # kernels.jl, KernelLabel.jl
-export KernelLabel, get_matrix, kernel_sample_F, kernel_eigs, kernel_bvp,
-       get_energies, kernel_birkhoff
+export KernelLabel, get_matrix, kernel_sample_F, window_weight,
+       rectangular_window_weight, kernel_eigs, kernel_bvp, get_energies,
+       kernel_birkhoff
 # Examples.jl
 export standard_map_F, standard_map_FJ, polar_map
 # BirkhoffAveraging.jl, ContinuedFractions.jl, MPE.jl
