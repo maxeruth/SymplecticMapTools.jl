@@ -18,11 +18,11 @@ end
 
 
 """
-    weighted_birkhoff_average(hs::Union{AbstractVector, AbstractMatrix})
+    weighted_birkhoff_average(hs::AbstractMatrix)
 
-Finds a Birkhoff average of a sequence of vector observations. The array input
-is assumed to be of size d × N, where the average is performed over the second
-index.
+Finds a weighted Birkhoff average of a sequence of vector observations. The
+array input is assumed to be of size d × N, where the average is performed over
+the second index.
 """
 function weighted_birkhoff_average(hs::AbstractMatrix)
     N = size(hs, 2)
@@ -34,7 +34,7 @@ end
 """
     weighted_birkhoff_average(hs::AbstractVector)
 
-Finds a Birkhoff average of a sequence of scalar observations.
+Finds a weighted Birkhoff average of a sequence of scalar observations.
 """
 function weighted_birkhoff_average(hs::AbstractVector)
     weighted_birkhoff_average(hs')
