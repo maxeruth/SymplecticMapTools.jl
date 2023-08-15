@@ -16,6 +16,107 @@ function wba_weight(d::Integer, N::Integer)
     return Diagonal(sqrt.(kron(g,ones(d))));
 end
 
+
+"""
+    weighted_birkhoff_average(hs::Union{AbstractVector, AbstractMatrix})
+
+Finds a Birkhoff average of a sequence of vector observations. The array input
+is assumed to be of size d × N, where the average is performed over the second
+index.
+"""
+function weighted_birkhoff_average(hs::AbstractMatrix)
+    N = size(hs, 2)
+    t = (1:N) ./ (N+1);
+    w = exp.(- 1 ./ ( t .* (1 .- t)))
+    return (hs*w) ./ sum(w)
+end
+
+"""
+    weighted_birkhoff_average(hs::AbstractVector)
+
+Finds a Birkhoff average of a sequence of scalar observations.
+"""
+function weighted_birkhoff_average(hs::AbstractVector)
+    weighted_birkhoff_average(hs')
+end
+
+
+"""
+    doubling_birkhoff_average(h::Function, F::Function, x0::AbstractVector;
+                              tol::Number = 1e-10, T_init::Integer=10,
+                              T_max::Integer=320)
+
+Find the weighted Birkhoff ergodic average of an observable function `h` over a
+trajectory of the map `F` adaptively.
+
+Arguments:
+- `h`: A function from Rᵈ to Rⁿ, where d is the dimension of the state space
+  and n is the dimension of the observation
+- `F`: The (symplectic) map: a function from Rᵈ to Rᵈ
+- `x0`: The initial point of the trajectory in Rᵈ
+- `tol`: The tolerance by which convergence is judged. If the average does not
+  change by more than `tol` over a doubling, the function returns
+- `T_init`: The initial length of the trajectory considered
+- `T_max`: The maximum trajectory length considered
+
+Output:
+- `ave`: The average of `h` over the trajectory
+- `xs`: The trajectory
+- `hs`: The value of `h` on the trajectory
+- `conv_flag`: `true` iff the averages converged
+"""
+function doubling_birkhoff_average(h::Function, F::Function, x0::AbstractVector;
+                                   tol::Number = 1e-10, T_init::Integer=10,
+                                   T_max::Integer=320)
+    # Initialize arrays
+    T = T_init
+    d = length(x0)
+    xs = zeros(d, T)
+    xs[:, 1] = x0;
+
+    h0 = h(x0)
+    d_h = length(h0);
+    hs = zeros(d_h, T);
+    hs[:, 1] .= h0;
+
+    # Find initial average
+    for t = 2:T
+        xs[:, t] = F(xs[:, t-1])
+        hs[:, t] .= h(xs[:, t])
+    end
+    ave = weighted_birkhoff_average(hs)
+
+    # Double average size until convergence or errors
+    while 2T <= T_max
+        xs_prev = xs;
+        hs_prev = hs;
+        ave_prev = ave
+
+        xs = zeros(d, 2T)
+        hs = zeros(d_h, 2T)
+
+        xs[:, 1:T] = xs_prev;
+        hs[:, 1:T] = hs_prev;
+
+        for t = T+1:2T
+            xs[:, t] = F(xs[:, t-1])
+            hs[:, t] .= h(xs[:, t])
+        end
+
+        ave = weighted_birkhoff_average(hs)
+
+        if norm(ave-ave_prev) < tol
+            return ave, xs, hs, true
+        end
+
+        T = 2T
+    end
+
+
+    return ave, xs, hs, false
+end
+
+
 """
     birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
                            N::Integer, K::Integer; iterative::Bool=true,
