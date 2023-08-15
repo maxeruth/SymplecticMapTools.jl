@@ -101,6 +101,8 @@ big_denoms
 vector_mpe_backslash
 vector_mpe_iterative
 wba_weight
+weighted_birkhoff_average
+doubling_birkhoff_average
 birkhoff_extrapolation
 adaptive_birkhoff_extrapolation
 sum_stats
