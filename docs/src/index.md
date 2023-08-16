@@ -39,7 +39,9 @@ to (3) still in need of testing. More examples are being added as well.
 ## Examples
 ```@contents
 Pages = [
+   "examples/birkhoff_averaging/birkhoff_averaging.md"
    "examples/extrapolation/extrapolation.md"
+   "examples/kernel/kernel.md"
 ]
 ```
 

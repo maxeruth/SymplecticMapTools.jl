@@ -167,6 +167,10 @@ function kernel_eigs(xs::AbstractArray, ϵ::Number, nev::Integer, σ::Number,
     vs = vs * Diagonal([1. ./ norm(K*v) for v = eachcol(vs)])
 
     Nλ = length(λs)
+    if Nλ ≥ 1
+        set_c!(k, vs[:, 1])
+    end
+
     if Nλ == nev # Arpack converged
         return λs, vs, k
     end
@@ -196,8 +200,6 @@ where
 - `‖Kc - h_{bd}‖²_bd` is a norm penalizing the function from violating the
   boundary condition
 - `‖c‖²_k` is the smoothing kernel norm
-Outputs a kernel label `k` with the solution `c`. If `residuals=true`, also
-outputs the values of `R_inv`, `R_bd`, `R_eps`, and `R = R_inv + R_bd + R_eps`.
 
 Arguments:
 - `xs`: interpolation points of size d × 2N, where xs[:, N+1:2N] = F.(xs[:, 1:N])
@@ -210,6 +212,14 @@ Arguments:
 - `kernel=:SquaredExponential`: Type of kernel to interpolate
   (see `KernelLabel`)
 - `residuals=true`: True if you want the problem to return residuals.
+
+Output:
+- `k`: The kernel function
+(if `residuals=true`)
+- `R`: The total residual
+- `R_bd`: The boundary condition residual
+- `R_inv`: The invariance residual
+- `R_eps`: The smoothness residual
 """
 function kernel_bvp(xs::AbstractArray, ϵ::Number, σ::Number,
                     boundary_weights::AbstractVector,
