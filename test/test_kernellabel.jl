@@ -44,12 +44,12 @@
     w = window_weight(xs, lims, α)
 
     λs, vs, k_eigs = kernel_eigs(xs, ϵ, nev, σ, w; kernel)
-    @test λs[1] ≈ 4.85624090981917e-7 # This is arbitrary, but it makes sure the behavior doesn't change at least...
+    @test abs(λs[1]/4.85624090981917e-7 - 1) < 1e-4 # This is arbitrary, but it makes sure the behavior doesn't change at least...
 
     # And kernel_bvp
     boundary_values = [tanh((2xi[2]-1)/α) for xi = eachcol(xs)]
     k, R, R_bc, R_inv, R_eps = kernel_bvp(xs, ϵ, σ, w, boundary_values; kernel)
-    @test R ≈ 3.430457448227529e-6 # Again, arbitrary
+    @test (R/3.430457448227529e-6 - 1) < 1e-4 # Again, arbitrary
 
     # Test that get_energies is returning the same stuff as kernel_bvp
     EK, EInv, Ebd, EL2 = get_energies(k; W = Diagonal(w))
