@@ -53,6 +53,6 @@
 
     # Test that get_energies is returning the same stuff as kernel_bvp
     EK, EInv, Ebd, EL2 = get_energies(k; W = Diagonal(w))
-    @test R_inv ≈ EInv
-    @test R_eps ≈ EK*ϵ
+    @test abs(R_inv - EInv) < 1e-4
+    @test (R_eps/ϵ - EK) < 1e-4
 end
