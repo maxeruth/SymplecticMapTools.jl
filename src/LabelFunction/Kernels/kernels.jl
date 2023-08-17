@@ -18,6 +18,7 @@ end
 include("./squared_exponential.jl")
 include("./multiquadric.jl")
 include("./fourier_se.jl")
+include("./fourier.jl")
 
 """
     KernelLabel
@@ -41,8 +42,6 @@ Constructor elements:
 The current supported kernels are:
 - `:SquaredExponential`: The squared exponential kernel
     K(x, y) = exp(-|x-y|²)
-- `:Multiquadric`: The β=1 Multiquadric kernel
-    K(x, y) = (1+|x-y|²)^(1/2)
 - `:InverseMultiquadric`: The β=1 Inverse Multiquadric kernel
     K(x, y) = (1+|x-y|²)^(-1/2)
 - `:FourierSE`: The Fourier × Cartesian squared exponential kernel
@@ -58,8 +57,8 @@ struct KernelLabel
 
     function KernelLabel(x::AbstractArray, c::AbstractVector, σ::AbstractArray;
                             kernel::Symbol=:SquaredExponential)
-        @assert kernel ∈ (:SquaredExponential, :Multiquadric, :InverseMultiquadric,
-                        :FourierSE, :Fourier)
+        @assert kernel ∈ (:SquaredExponential, :InverseMultiquadric, :FourierSE,
+                          :Fourier)
         new(x, c, Diagonal(σ), kernel);
     end
 end
@@ -90,9 +89,6 @@ function get_matrix(k::KernelLabel, x::AbstractArray)
 
     if get_kernel(k) == :SquaredExponential
         return SE_matrix(σ\x, σ\get_x(k))
-
-    elseif get_kernel(k) == :Multiquadric
-        return multiquadric_matrix(σ\x, σ\get_x(k))
 
     elseif get_kernel(k) == :InverseMultiquadric
         return inverse_multiquadric_matrix(σ\x, σ\get_x(k))

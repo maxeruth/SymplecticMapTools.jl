@@ -19,8 +19,9 @@ using IterativeSolvers
 using Polynomials
 using Requires
 using Sobol
-using Colors
 using Optim
+using ColorSchemes
+using Colors
 
 # using LoopVectorization
 
@@ -42,6 +43,7 @@ function __init__()
             include("../ext/PlotsUtils.jl")
             export parametric_plot
       end
+
       @require CairoMakie="13f3f980-e62b-5c42-98c6-ff1f3baf88f0" begin
             include("../ext/CairoMakieUtils.jl")
             export lines_periodic!, plot_on_grid, poincare_plot
@@ -59,8 +61,9 @@ export InvariantCircle, FourierCircle, get_Na, get_p, get_a0, set_a0!, get_Am,
 export ConnectingOrbit, get_am, set_am!, linear_initial_connecting_orbit,
        gn_connecting!
 # kernels.jl, KernelLabel.jl
-export KernelLabel, get_matrix, kernel_sample_F, kernel_eigs, kernel_bvp,
-       get_energies, kernel_birkhoff
+export KernelLabel, get_matrix, kernel_sample_F, window_weight,
+       rectangular_window_weight, kernel_eigs, kernel_bvp, get_energies,
+       kernel_birkhoff
 # Examples.jl
 export standard_map_F, standard_map_FJ, polar_map
 # BirkhoffAveraging.jl, ContinuedFractions.jl, MPE.jl
@@ -69,6 +72,11 @@ export vector_mpe_backslash, vector_mpe_iterative, ContFrac, big_cont_frac_eval,
        weighted_birkhoff_average, doubling_birkhoff_average,
        birkhoff_extrapolation, adaptive_birkhoff_extrapolation, sum_stats,
        get_sum_ave, get_circle_info
+
+
+# using CairoMakie
+# include("../ext/CairoMakieUtils.jl")
+# export lines_periodic!, plot_on_grid, poincare_plot
 
 ## Extensions require Julia > 1.9
 # if !isdefined(Base, :get_extension)

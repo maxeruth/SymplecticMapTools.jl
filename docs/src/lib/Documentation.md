@@ -78,6 +78,8 @@ gn_connecting!
 KernelLabel
 get_matrix(::KernelLabel, ::AbstractArray)
 evaluate(::KernelLabel, ::AbstractArray)
+window_weight
+rectangular_window_weight
 kernel_sample_F
 kernel_eigs
 kernel_bvp

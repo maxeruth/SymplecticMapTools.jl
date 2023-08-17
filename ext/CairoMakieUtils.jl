@@ -87,7 +87,7 @@ end
     plot_on_grid(x::AbstractVector, y::AbstractVector, k::KernelLabel;
                  kwargs...)
 
-Create a contour plot of the kernel label `k` on the `x` × `y` grid.
+Create a filled contour plot of the kernel label `k` on the `x` × `y` grid.
 
 kwargs:
 - `balance=true`: If true, makes the maximum value of the color scale equal to
@@ -96,37 +96,45 @@ kwargs:
 - `xlabel`, `ylabel`, `title`: See `CairoMakie.Axis`
 - `levels`, `linewidth`: See `CairoMakie.contour!`
 - `clabel`: See `CairoMakie.Colorbar`
+
+Output:
+- `f`: The CairoMakie Figure
+- `f_grid`: The data used to make the figure
 """
 function plot_on_grid(x::AbstractVector, y::AbstractVector, k::KernelLabel;
                       xlabel="", ylabel="", title="", levels=5, linewidth=2,
-                      resolution = (800, 800), clabel="", fontsize=30, balance=true)
-    Nx = length(x);
-    Ny = length(y);
+                      resolution = (800, 800), clabel="", fontsize=25,
+                      balance=true)
+   Nx = length(x);
+   Ny = length(y);
 
-    grid = zeros(2, Nx, Ny);
-    for ii = 1:Nx, jj = 1:Ny
-       grid[:, ii, jj] = [x[ii], y[jj]];
-    end
-    grid = reshape(grid, 2, Nx*Ny);
-    f_grid = reshape(evaluate(k, grid), Nx, Ny);
-    f_max = maximum(abs.(f_grid));
-    colorrange = (-f_max, f_max)
+   grid = zeros(2, Nx, Ny);
+   for ii = 1:Nx, jj = 1:Ny
+      grid[:, ii, jj] = [x[ii], y[jj]];
+   end
+   grid = reshape(grid, 2, Nx*Ny);
+   f_grid = reshape(evaluate(k, grid), Nx, Ny);
+   f_max = maximum(abs.(f_grid));
 
-    if !balance
-        colorrange = (minimum(f_grid), maximum(f_grid));
-    end
+   colorrange = (-f_max, f_max)
 
-    f = Figure(resolution = resolution, fontsize=fontsize);
-    ax = Axis(f[1,1], xlabel=xlabel, ylabel=ylabel, title=title)
+   if !balance
+      colorrange = (minimum(f_grid), maximum(f_grid));
+   end
 
-    colormap = "RdBu"
-    # colormap = range(HSL(colorant"red"), stop=HSL(colorant"blue"), length=15)
+   f = CairoMakie.Figure(resolution = resolution, fontsize=fontsize);
+   ax = CairoMakie.Axis(f[1,1], xlabel=xlabel, ylabel=ylabel, title=title)
 
-    p = CairoMakie.contour!(x, y, f_grid; levels=levels, linewidth=linewidth,
-                                        colormap=colormap, colorrange=colorrange);
-    Colorbar(f[1, 2], p, label = clabel)
+   colormap = colorschemes[:diverging_linear_bjr_30_55_c53_n256]
 
-    return f, ax, f_grid
+   levels = LinRange(colorrange[1], colorrange[2], levels)
+   p = CairoMakie.contourf!(x, y, f_grid; levels,  linewidth, colormap);
+   p2 = CairoMakie.contour!(x, y, f_grid; levels, color=:black, linewidth);
+   CairoMakie.xlims!(minimum(x), maximum(x))
+   CairoMakie.ylims!(minimum(y), maximum(y))
+   CairoMakie.Colorbar(f[1, 2], p, label = clabel)
+
+   return f, f_grid
 end
 
 
