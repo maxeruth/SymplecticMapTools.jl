@@ -25,6 +25,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 [compat]
 Arpack = "0.5"
 CairoMakie = "0.10"
+ColorSchemes = "3"
 Colors = "0.12"
 FFTW = "1"
 IterativeSolvers = "0.9"
