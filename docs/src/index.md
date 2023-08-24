@@ -26,7 +26,7 @@ Springer International Publishing, Cham, 2016.
 
 ## Installation
 For installation, add the package using the command
-`]add path/to/SymplecticMapTools.jl` in the Julia REPL.
+`]add SymplecticMapTools` in the Julia REPL.
 This package uses Requires for plotting.
 You must load CairoMakie or Plots separately to use the plotting functionality.
 
