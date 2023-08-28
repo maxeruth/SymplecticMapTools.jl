@@ -144,13 +144,13 @@ end
 ````
 
 ````
-Number of trajectories for K=50 is 33
-Number of trajectories for K=100 is 23
-Number of trajectories for K=150 is 9
-Number of trajectories for K=200 is 8
+Number of trajectories for K=50 is 37
+Number of trajectories for K=100 is 21
+Number of trajectories for K=150 is 8
+Number of trajectories for K=200 is 6
 Number of trajectories for K=250 is 1
-Number of trajectories for K=300 is 3
-Number of trajectories for K=350 is 2
+Number of trajectories for K=300 is 5
+Number of trajectories for K=350 is 1
 Number of trajectories for K=400 is 21
 
 ````
@@ -201,9 +201,9 @@ println("Invariant circle validation errors:
 
 ````
 Invariant circle validation errors:
-   smallest --- 2.1654113538231883e-15
-   largest  --- 2.8058773742602675e-5
-   median   --- 3.4730759016701472e-9
+   smallest --- 2.0211746724319608e-15
+   largest  --- 1.634572910924854e-5
+   median   --- 4.225798236619171e-9
 
 
 ````
