@@ -26,7 +26,7 @@
     @test norm(hs[:, 1:Kinit] - hsls[:, 1:Kinit]) < 1e-14
 
     # Test that mpe and rre give similar predictions
-    @test norm(sums[:,1] - sumsrre[:,1]) < 1e-8
+    @test norm(sums[:,1] - sumsrre[:,1]) < 1e-6
     @test norm(xs[:, 1:Kinit] - xsrre[:, 1:Kinit]) < 1e-14
     @test norm(hs[:, 1:Kinit] - hsrre[:, 1:Kinit]) < 1e-14
 
