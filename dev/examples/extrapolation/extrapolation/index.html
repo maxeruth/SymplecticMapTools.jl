@@ -62,13 +62,13 @@ axislegend(ax, merge=true)
 f</code></pre><p><img src="../extrapolation-10.png" alt/></p><p>The above is a plot which shows the trajectories as black if the extrapolation algorithm converged to the tolerance of <code>1e-7</code> and red if they did not. We see that the red trajectories did not converge quickly, and they correlate strongly with whether the trajectory is in chaos. We can check the filter length for the values of <span>$K$</span> we iterated over:</p><pre><code class="language-julia hljs">for Ki = Kinit:Kstride:Kmax
     Ksum = sum(Ks .== Ki)
     println(&quot;Number of trajectories for K=$(Ki) is $(Ksum)&quot;)
-end</code></pre><pre><code class="nohighlight hljs">Number of trajectories for K=50 is 33
-Number of trajectories for K=100 is 23
-Number of trajectories for K=150 is 9
-Number of trajectories for K=200 is 8
+end</code></pre><pre><code class="nohighlight hljs">Number of trajectories for K=50 is 37
+Number of trajectories for K=100 is 21
+Number of trajectories for K=150 is 8
+Number of trajectories for K=200 is 6
 Number of trajectories for K=250 is 1
-Number of trajectories for K=300 is 3
-Number of trajectories for K=350 is 2
+Number of trajectories for K=300 is 5
+Number of trajectories for K=350 is 1
 Number of trajectories for K=400 is 21
 </code></pre><p>We see that most trajectories are classified when <span>$K \leq 200$</span>, with only a few being classified later. Additionally, those that are mis-classified tend to be at the edges of island chains or chaos.</p><p>Now, we turn to finding models for the invariant circles. We do this via the function <code>get_circle_info</code>.</p><pre><code class="language-julia hljs">zs = Vector{FourierCircle}(undef, Ncircle)
 for ii = (1:Ncircle)[rnorms .&lt; rtol]
@@ -94,8 +94,8 @@ println(&quot;Invariant circle validation errors:
    largest  --- $(maximum(errs_validation[ind]))
    median   --- $(sort!(errs_validation[ind])[sum(ind)÷2])
 &quot;)</code></pre><pre><code class="nohighlight hljs">Invariant circle validation errors:
-   smallest --- 2.1654113538231883e-15
-   largest  --- 2.8058773742602675e-5
-   median   --- 3.4730759016701472e-9
+   smallest --- 2.0211746724319608e-15
+   largest  --- 1.634572910924854e-5
+   median   --- 4.225798236619171e-9
 
-</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../birkhoff_averaging/birkhoff_averaging/">« Birkhoff Averages</a><a class="docs-footer-nextpage" href="../../kernel/kernel/">Approximately Invariant Kernel Functions »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Monday 21 August 2023 16:40">Monday 21 August 2023</span>. Using Julia version 1.9.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../birkhoff_averaging/birkhoff_averaging/">« Birkhoff Averages</a><a class="docs-footer-nextpage" href="../../kernel/kernel/">Approximately Invariant Kernel Functions »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Tuesday 29 August 2023 20:00">Tuesday 29 August 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
