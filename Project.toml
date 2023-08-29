@@ -1,7 +1,7 @@
 name = "SymplecticMapTools"
 uuid = "6d28690f-f14d-4e01-b22c-df83f7606a8b"
 authors = ["Max Ruth", "David Bindel"]
-version = "0.1.1"
+version = "0.1.2"
 
 [deps]
 Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
