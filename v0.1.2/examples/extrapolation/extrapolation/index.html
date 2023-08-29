@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Birkhoff Extrapolation · SymplecticMapTools</title><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">SymplecticMapTools</a></span></div><form class="docs-search" action="../../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../../">SymplecticMapTools.jl</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../../birkhoff_averaging/birkhoff_averaging/">Birkhoff Averages</a></li><li class="is-active"><a class="tocitem" href>Birkhoff Extrapolation</a></li><li><a class="tocitem" href="../../kernel/kernel/">Approximately Invariant Kernel Functions</a></li></ul></li><li><a class="tocitem" href="../../../lib/Documentation/">Documentation</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Birkhoff Extrapolation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Birkhoff Extrapolation</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/maxeruth/SymplecticMapTools.jl/blob/main/docs/extrapolation.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Extrapolation-Example"><a class="docs-heading-anchor" href="#Extrapolation-Example">Extrapolation Example</a><a id="Extrapolation-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Extrapolation-Example" title="Permalink"></a></h1><p>This is an example of <code>SymplecticMapTools.jl</code>. The example exists both as a webpage and as a notebook. To find the notebook, simply go to the <code>/examples/</code> folder in the package directory.</p><p>We will show how sequence extrapolation can be used for finding invariant circles of the Chirikov standard map. The standard map is given by</p><p class="math-container">\[\begin{aligned}
+    x_{t+1} &amp;= x_t + y_{t+1} \mod 1, \\
+    y_{t+1} &amp;= y_t - \frac{k}{2\pi} \sin(2\pi x_t).
+\end{aligned}\]</p><p>For this example, we will use <span>$k=0.7$</span>, which gives a nice mix of chaos, invariant circles, and islands.</p><pre><code class="language-julia hljs">using Revise
+using SymplecticMapTools
+using CairoMakie
+using LinearAlgebra</code></pre><pre><code class="language-julia hljs">k_sm = 0.7
+F = standard_map_F(k_sm)
+
+f, xs_pp = poincare_plot([0,1], [0,1], F, 500, 1000, title=&quot;Standard Map, k = $(k_sm)&quot;)
+f</code></pre><p><img src="../extrapolation-5.png" alt/></p><p>The extrapolation method presented here has two steps:</p><ol><li>Perform an extrapolation method (minimal polynomial extrapolation (MPE) or reduced rank extrapolation (RRE)). The extrapolation method returns a filter for the sequence. When the linear model is applied to the sequence, it can extract the mean (also known as the Birkhoff ergodic average). Additionally, if the extrapolation returns a low residual, this can be used as an indicator that the trajectory is integrable (i.e. it is an invariant circle or island) rather than chaotic.</li><li>If the trajectory is classified as integrable, we can extract frequency information from the learned filter. This can be used to recover the rotation number, as well as the Fourier modes of the invariant structures.</li></ol><p>As first step, we choose some initial points. The above plot was made using initial points sampled from a <code>SoboloSeq</code> (see <a href="https://github.com/JuliaMath/Sobol.jl">Sobol.jl</a>). So, we will simply use those:</p><pre><code class="language-julia hljs">Ncircle = 100
+
+resolution=(800, 800)
+fontsize=25
+
+x_init = xs_pp[:, 1, 1:Ncircle];
+
+f = Figure(resolution=(800, 800), fontsize=25);
+ax = Axis(f[1,1], xlabel = &quot;x&quot;, ylabel = &quot;y&quot;, title = &quot;Initial points&quot;);
+scatter!(x_init)
+f</code></pre><p><img src="../extrapolation-7.png" alt/></p><p>Then, we find extrapolated models at each of these points. The model will be obtained via the <code>adaptive_birkhoff_extrapolation</code> function.</p><p>However, we note that there is a detail that must be considered with the standard map. The extrapolation code is written for continuous signals. The standard map is continuous on <span>$\mathbb{T} \times \mathbb{R}$</span>, but it is not on <span>$\mathbb{R}^2$</span>. The algorithms assume that the signal is continuous in <span>$\mathbb{R}^2$</span>, however, so we need to map the space to an appropriate one. For this, we will use the observable function</p><pre><code class="nohighlight hljs">h(x, y) = \begin{pmatrix}
+\left(y + \frac{1}{2} \right)\cos(2\pi x) \\
+\left(y + \frac{1}{2} \right)\sin(2\pi x)
+\end{pmatrix}</code></pre><pre><code class="language-julia hljs">rtol = 1e-8
+Kinit = 50
+Kstride = 50
+Kmax = 400
+Nfactor = 1.5;
+
+h, HJ, hinv, HJinv = polar_map();
+cs = Vector{Vector{Float64}}(undef, Ncircle);
+hs = Vector{Matrix{Float64}}(undef, Ncircle);
+xs = Vector{Matrix{Float64}}(undef, Ncircle);
+rnorms = zeros(Ncircle)
+Ks = zeros(Int64, Ncircle)
+for ii = 1:Ncircle
+    if (ii % 10) == 0; println(&quot;ii = $(ii)/$(Ncircle)&quot;); end
+    cs[ii], _, _, xs[ii], hs[ii], rnorms[ii], Ks[ii], _ = adaptive_birkhoff_extrapolation(h, F, x_init[:, ii]; rtol, Kinit, Kstride, Kmax, Nfactor)
+end</code></pre><pre><code class="nohighlight hljs">ii = 10/100
+ii = 20/100
+ii = 30/100
+ii = 40/100
+ii = 50/100
+ii = 60/100
+ii = 70/100
+ii = 80/100
+ii = 90/100
+ii = 100/100
+</code></pre><pre><code class="language-julia hljs">markersize=5
+f = Figure(;resolution, fontsize);
+ax = Axis(f[1,1], xlabel=&quot;x&quot;, ylabel=&quot;y&quot;);
+xlims!(0, 1); ylims!(0,1)
+for ii = (1:Ncircle)
+    if rnorms[ii] &lt; rtol
+        CairoMakie.scatter!(xs[ii][1,:], xs[ii][2,:]; color=:black, markersize, label=&quot;Invariant Circles / Islands&quot;)
+    else
+        CairoMakie.scatter!(xs[ii][1,:], xs[ii][2,:]; color=:red, markersize, label=&quot;Chaos&quot;)
+    end
+end
+axislegend(ax, merge=true)
+f</code></pre><p><img src="../extrapolation-10.png" alt/></p><p>The above is a plot which shows the trajectories as black if the extrapolation algorithm converged to the tolerance of <code>1e-7</code> and red if they did not. We see that the red trajectories did not converge quickly, and they correlate strongly with whether the trajectory is in chaos. We can check the filter length for the values of <span>$K$</span> we iterated over:</p><pre><code class="language-julia hljs">for Ki = Kinit:Kstride:Kmax
+    Ksum = sum(Ks .== Ki)
+    println(&quot;Number of trajectories for K=$(Ki) is $(Ksum)&quot;)
+end</code></pre><pre><code class="nohighlight hljs">Number of trajectories for K=50 is 37
+Number of trajectories for K=100 is 21
+Number of trajectories for K=150 is 8
+Number of trajectories for K=200 is 6
+Number of trajectories for K=250 is 1
+Number of trajectories for K=300 is 5
+Number of trajectories for K=350 is 1
+Number of trajectories for K=400 is 21
+</code></pre><p>We see that most trajectories are classified when <span>$K \leq 200$</span>, with only a few being classified later. Additionally, those that are mis-classified tend to be at the edges of island chains or chaos.</p><p>Now, we turn to finding models for the invariant circles. We do this via the function <code>get_circle_info</code>.</p><pre><code class="language-julia hljs">zs = Vector{FourierCircle}(undef, Ncircle)
+for ii = (1:Ncircle)[rnorms .&lt; rtol]
+    zs[ii] = get_circle_info(hs[ii], cs[ii])
+end</code></pre><p>Additionally, for the special case where we need to work with observations from <span>$h : \mathbb{T}\times\mathbb{R} \to \mathbb{R}^2$</span>, we have a plotting routine that can be used to plot the invariant circles in <span>$\mathbb{R}^2$</span> given an inverse function <span>$h^{-1}$</span>. This is done in the following:</p><pre><code class="language-julia hljs">f = Figure(;resolution, fontsize);
+ax = Axis(f[1,1], xlabel=&quot;x&quot;, ylabel=&quot;y&quot;)
+xlims!(0, 1); ylims!(0,1)
+for ii = (1:Ncircle)[rnorms .&lt; rtol]
+    lines_periodic!(ax, zs[ii], hinv; N=500, color=:red, linewidth=4, label=&quot;Invariant Circles&quot;)
+    scatter!(xs[ii][1,:], xs[ii][2,:], markersize=3, color=:blue, label=&quot;Trajectories&quot;)
+end
+axislegend(ax, merge=true)
+f</code></pre><p><img src="../extrapolation-16.png" alt/></p><p>In the above plot, we have plotted the trajectories on the found invariant circles. We see that the trajectories qualitatively match well. Additionally, we can use the function <code>get_circle_residual</code> to find a validation error. This is useful in automatically identifying cases where the found Fourier series is incorrect.</p><pre><code class="language-julia hljs">N_norm = 6;
+errs_validation = zeros(Ncircle)
+for ii = (1:Ncircle)[rnorms .&lt; rtol]
+    res = get_circle_residual((x) -&gt; h(F(hinv(x))), zs[ii], N_norm)
+    errs_validation[ii] = norm(res)/sqrt(length(res))
+end
+ind = rnorms .&lt; rtol
+
+println(&quot;Invariant circle validation errors:
+   smallest --- $(minimum(errs_validation[ind]))
+   largest  --- $(maximum(errs_validation[ind]))
+   median   --- $(sort!(errs_validation[ind])[sum(ind)÷2])
+&quot;)</code></pre><pre><code class="nohighlight hljs">Invariant circle validation errors:
+   smallest --- 2.0211746724319608e-15
+   largest  --- 1.634572910924854e-5
+   median   --- 4.225798236619171e-9
+
+</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../birkhoff_averaging/birkhoff_averaging/">« Birkhoff Averages</a><a class="docs-footer-nextpage" href="../../kernel/kernel/">Approximately Invariant Kernel Functions »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Tuesday 29 August 2023 21:04">Tuesday 29 August 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
