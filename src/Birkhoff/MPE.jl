@@ -1,3 +1,12 @@
+function get_sums_and_resid(x,c,D,H)
+    N = length(c);
+    X = block_hankel_linear_operator(x[:, 1:end-N+1], x[:, end-N+1:end])
+    sums = X*c;
+    resid = D*H*c;
+
+    sums, resid
+end
+
 """
     vector_mpe_backslash(x::AbstractArray, K::Integer)
 
@@ -8,23 +17,23 @@ function vector_mpe_backslash(x::AbstractArray, K::Integer)
     u = diff(x, dims=2)
     d, L = size(u);
 
-    N = 2K-3;
+    N = 2K-1;
     M = L - N - 1;
     @assert (d*M ≥ K)
 
     P = Matrix(mpe_p(K-1));
     D = wba_weight(d, M);
+    H = BlockHankelMatrix(u[:,2:M+1], u[:,M+1:N+M])
 
-    A = D*BlockHankelMatrix(u[:,2:M+1], u[:,M+1:N+M])*P';
+    A = D*H*P';
     b = - D*(vec(u[:,1:M]) + vec(u[:,end-M+1:end]));
 
-    c = ones(2K-1);
+    c = ones(2K+1);
     c[2:end-1] = (P'*(A\b))
     c = c ./ sum(c)
 
-    X = BlockHankelMatrix(x[:, 1:end-2K+2], x[:, end-2K+2:end])
-    sums = X*c;
-    resid = A*c[K:end-1] - b*c[1];
+    H2 = BlockHankelMatrix(u[:,1:end-2K], u[:,end-2K:end])
+    sums, resid = get_sums_and_resid(x,c,D,H2)
 
     return c, sums, resid
 end
@@ -48,30 +57,28 @@ function vector_mpe_iterative(x::AbstractArray, K::Integer; atol = 1e-14,
     u = diff(x, dims=2)
     d, L = size(u);
 
-    N = 2K-1;
+    N = 2K+1;
     M = L - N + 1;
     @assert (d * M ≥ K)
 
-    P = mpe_p_2(K);
+
     D = LinearOperator(wba_weight(d, M); symmetric=true, hermitian=true);
-
     H = block_hankel_linear_operator(u[:,1:end-N+1], u[:,end-N+1:end]);
+    P = mpe_p_2(K);
+
     A = D*H*P';
-    b = - D*H[:, K]*[1.];
+    b = - D*H[:, K+1]*[1.];
 
-    c = (c0==nothing) ? ones(2K-1) : c0;
-    c = c ./ c[K]
+    c = (c0==nothing) ? ones(2K+1) : c0;
+    c = c ./ c[K+1]
 
-    sol = c[K+1:end];
-    # println("MPE: size(A) = $(size(A))")
+    sol = c[K+2:end];
     sol, history = lsqr!(sol, A, b; atol, btol, log=true)
-    c[K+1:end] = sol
-    c[1:K-1] = sol[end:-1:1];
+    c[K+2:end] = sol
+    c[1:K] = sol[end:-1:1];
     c = c ./ sum(c)
 
-    X = block_hankel_linear_operator(x[:, 1:end-2K+2], x[:, end-2K+2:end])
-    sums = X*c;
-    resid = D*H*c;
+    sums, resid = get_sums_and_resid(x,c,D,H)
 
     return c, sums ,resid, history
 end
@@ -82,28 +89,58 @@ function vector_mpe_iterative_full(x::AbstractArray, K::Integer; atol = 1e-14, b
     u = diff(x, dims=2)
     d, L = size(u);
 
-    N = 2K-3;
+    N = 2K-1;
     M = L - N - 1;
     # @assert (d*M ≥ K)
 
-    P = Matrix(mpe_p(K-1));
     D = wba_weight(d, M);
+    H = BlockHankelMatrix(u[:,2:M+1], u[:,M+1:N+M]);
+    P = Matrix(mpe_p(K-1));
 
-    A = D*BlockHankelMatrix(u[:,2:M+1], u[:,M+1:N+M])*P';
+
+    display(size(D))
+    display(size(H))
+    display(size(P'))
+    A = D*H*P';
     b = - D*(vec(u[:,1:M]) + vec(u[:,end-M+1:end]));
 
-    c = ones(2K-1);
+    c = ones(2K+1);
     sol, history = lsqr(A,b; atol, btol, log=true)
     c[2:end-1] = P'*sol
     c = c ./ sum(c)
 
-    X = BlockHankelMatrix(x[:, 1:end-2K+2], x[:, end-2K+2:end])
-    sums = X*c;
-    resid = A*c[K:end-1] - b*c[1];
+    H2 = BlockHankelMatrix(u[:,1:end-2K], u[:,end-2K:end])
+    sums, resid = get_sums_and_resid(x,c,D,H2)
 
     return c, sums ,resid, history
 end
 
+function vector_rre_iterative(x::AbstractArray, K::Integer; atol=1e-14, btol=1e-14)
+    x = typeof(x) <: AbstractVector ? x' : x
+    u = diff(x, dims=2)
+    d, L = size(u);
+
+    N = 2K+1;
+    M = L - N + 1;
+    @assert (d * M ≥ K)
+
+    D = LinearOperator(wba_weight(d, M); symmetric=true, hermitian=true);
+    H = block_hankel_linear_operator(u[:,1:end-N+1], u[:,end-N+1:end]);
+    P = rre_p(K);
+
+    A = D*H*P';
+    b = - D*H[:, K+1]*[1.];
+
+    xi = ones(K)
+    # println("MPE: size(A) = $(size(A))")
+    sol, history = lsqr!(xi, A, b; atol, btol, log=true)
+    c = P'*xi;
+    c[K+1] += 1;
+
+    sums, resid = get_sums_and_resid(x,c,D,H)
+
+    return c, sums, resid, history
+end
 ## TODO
 # function vector_MPE_preconditioned(x::AbstractArray, K::Integer; atol = 1e-14, btol = 1e-14, c0 = nothing)
 #     x = typeof(x) <: AbstractVector ? x' : x

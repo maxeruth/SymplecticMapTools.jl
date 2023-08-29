@@ -120,14 +120,16 @@ end
 """
     birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
                            N::Integer, K::Integer; iterative::Bool=true,
-                           x_prev::Union{AbstractArray,Nothing}=nothing)
+                           x_prev::Union{AbstractArray,Nothing}=nothing,
+                           rre::Bool=false)
 
 As input, takes an initial point `x0`, a symplectic map `F`, and an observable
 `h` (can choose the identity as a default `h = (x)->x`). Then, the method
 1. Computes a time series xs[:,n+1] = Fⁿ(x0)
 2. Computes observable series hs[:,n] = h(xs[:,n])
 3. Performs sequence extrapolation (RRE or MPE) on hs to obtain a model `c` of
-    degree `K`, the extrapolated value applied to each window, and a residual
+    length `2K+1` (with `K` unknowns), the extrapolated value applied to each
+    window, and a residual
 4. Returns as `c, sums, resid, xs, hs[, history]` where `history` is a
     diagnostic from the iterative solver that only returns when `iterative=true`
 
@@ -136,15 +138,17 @@ thing.
 """
 function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
                                 N::Integer, K::Integer; iterative::Bool=true,
-                                x_prev::Union{AbstractArray,Nothing}=nothing)
+                                x_prev::Union{AbstractArray,Nothing}=nothing,
+                                rre::Bool=false)
     x = deepcopy(x0);
     h0 = h(x);
     d = length(h0);
 
-    @assert N*d > 2K-1
+    @assert N*d ≥ K
 
-    hs = zeros(d, N+2K-2);
-    xs = zeros(2, N+2K-2);
+    Nx = N+2K+1
+    hs = zeros(d, Nx);
+    xs = zeros(2, Nx);
 
     hs[:, 1] = h0;
     xs[:, 1] = x;
@@ -159,27 +163,35 @@ function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
     end
     x = xs[:, ii_init-1]
 
-    for ii = ii_init:N+2K-2
+    for ii = ii_init:Nx
         x = F(x);
         hs[:,ii] = h(x)
         xs[:,ii] = x;
     end
     history = 0
 
-    if iterative
-        c, sums, resid, history = vector_mpe_iterative(hs, K)
+    if rre
+        if iterative
+            c, sums, resid, history = vector_rre_iterative(hs, K)
+        else
+            error("No direct RRE implemented!");
+        end
     else
-        c, sums, resid = vector_mpe_backslash(hs, K)
+        if iterative
+            c, sums, resid, history = vector_mpe_iterative(hs, K)
+        else
+            c, sums, resid = vector_mpe_backslash(hs, K)
+        end
     end
 
-    return c, reshape(sums, d, N), reshape(resid, d, N-1), xs, hs, history;
+    return c, reshape(sums, d, N+1), reshape(resid, d, N), xs, hs, history;
 end
 
 """
     adaptive_birkhoff_extrapolation(h::Function, F::Function,
                     x0::AbstractVector; rtol::Number=1e-12, Kinit = 20,
                     Kmax = 100, Kstride=20, iterative::Bool=true,
-                    Nfactor::Integer=1)
+                    Nfactor::Integer=1, rre::Bool=false)
 
 Adaptively applies `birkhoff_extrapolation` to find a good enough filter length
 `K`, where "good enough" is defined by the `rtol` optional argument.
@@ -198,6 +210,8 @@ Arguments:
 - `iterative`: Whether to use an iterative method to solve the Hankel system
                in the extrapolation step
 - `Nfactor`: How rectangular the extrapolation algorithm is. Must be >=1.
+- `rre`: Turn to true to use reduced rank extrapolation instead of minimal
+         polynomial extrapolation.
 
 Outputs:
 - `c`: Linear model / filter
@@ -213,7 +227,7 @@ Outputs:
 function adaptive_birkhoff_extrapolation(h::Function, F::Function,
                     x0::AbstractVector; rtol::Number=1e-8, Kinit = 20,
                     Kmax = 100, Kstride=20, iterative::Bool=true,
-                    Nfactor::Number=1)
+                    Nfactor::Number=1, rre::Bool=false)
     #
     d = length(h(x0));
     K = Kinit-Kstride
@@ -228,7 +242,7 @@ function adaptive_birkhoff_extrapolation(h::Function, F::Function,
         # println("K=$K, N=$N")
 
         c, sums, resid, xs, hs, history = birkhoff_extrapolation(
-                                           h, F, x0, N, K; iterative, x_prev=xs)
+                                      h, F, x0, N, K; iterative, x_prev=xs, rre)
         rnorm = norm(resid)
     end
 

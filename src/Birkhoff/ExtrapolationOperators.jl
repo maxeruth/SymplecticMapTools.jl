@@ -124,8 +124,8 @@ end
 
 ##  The "P" matrix (imposes time reversal symmetry)
 function mpe_p(K::Integer)
-    M = K;
-    N = 2K-1;
+    M = K+1;
+    N = 2K+1;
     function P_mul!(res, v, α, β::T) where T
         if β == zero(T)
             res[1] = v[M]
@@ -162,16 +162,17 @@ end
 
 # Used for when c_0 is constrained rather than c_(±K-1)
 function mpe_p_2(K::Integer)
-    M = K-1;
-    N = 2K-1;
+    M = K;
+    N = 2K+1;
+    mid = K+1
     function P_mul!(res, v, α, β::T) where T
         if β == zero(T)
             for ii = 1:M
-                res[ii] = (α)*(v[K-ii]+v[K+ii])
+                res[ii] = (α)*(v[mid-ii]+v[mid+ii])
             end
         else
             for ii = 1:M
-                res[ii] = β*res[ii] + (α)*(v[K-ii]+v[K+ii])
+                res[ii] = β*res[ii] + (α)*(v[mid-ii]+v[mid+ii])
             end
         end
     end
@@ -179,14 +180,60 @@ function mpe_p_2(K::Integer)
     function P_tmul!(v, res, α, β::T) where T
         if β == zero(T)
             for ii = 1:M
-                v[K-ii] = (α)*res[ii]
-                v[K+ii] = v[K-ii]
+                v[mid-ii] = (α)*res[ii]
+                v[mid+ii] = v[mid-ii]
             end
         else
             for ii = 1:M
                 x = (α)*res[ii]
-                v[K-ii] = β*v[K-ii] + x
-                v[K+ii] = β*v[K+ii] + x
+                v[mid-ii] = β*v[mid-ii] + x
+                v[mid+ii] = β*v[mid+ii] + x
+            end
+        end
+    end
+
+    LinearOperator(Float64, M, N, false, false, P_mul!, P_tmul!)
+end
+
+"""
+    rre_p(K::Integer)
+
+Function used for iterative solutions of the RRE problem. The matrix, when
+applied to a vector of
+"""
+function rre_p(K::Integer)
+    M = K;
+    N = 2K+1;
+    mid = K+1
+    function P_mul!(res, v, α, β::T) where T
+        if β == zero(T)
+            for ii = 1:M
+                res[ii] = α*(v[mid-ii]+v[mid+ii]-v[mid-ii+1]-v[mid+ii-1])
+            end
+        else
+            for ii = 1:M
+                res[ii] = β*res[ii] + α*(v[mid-ii]+v[mid+ii]-v[mid-ii+1]-v[mid+ii-1])
+            end
+        end
+    end
+
+    function P_tmul!(v, res, α, β::T) where T
+        if β == zero(T)
+            v[mid] = 0.
+            for ii = 1:M
+                αr = α*res[ii]
+                v[mid - ii + 1] -= αr
+                v[mid + ii - 1] -= αr
+                v[mid + ii    ] = αr
+                v[mid - ii    ] = αr
+            end
+        else
+            for ii = 1:M
+                αr = α*res[ii]
+                v[mid - ii + 1] -= αr
+                v[mid + ii - 1] -= αr
+                v[mid + ii    ] = β*v[mid + ii] + αr
+                v[mid - ii    ] = β*v[mid - ii] + αr
             end
         end
     end
