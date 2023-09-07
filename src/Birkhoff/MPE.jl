@@ -141,6 +141,34 @@ function vector_rre_iterative(x::AbstractArray, K::Integer; atol=1e-14, btol=1e-
 
     return c, sums, resid, history
 end
+
+
+function vector_rre_backslash(x::AbstractArray, K::Integer; atol=1e-14, btol=1e-14)
+    x = typeof(x) <: AbstractVector ? x' : x
+    u = diff(x, dims=2)
+    d, L = size(u);
+
+    N = 2K+1;
+    M = L - N + 1;
+    @assert (d * M ≥ K)
+
+    P = Matrix(rre_p(K));
+    D = wba_weight(d, M);
+    H = BlockHankelMatrix(u[:,1:end-N+1], u[:,end-N+1:end]);
+
+    A = D*H*P';
+    b = - D*H[:, K+1];
+
+    c = P'*(A\b);
+    c[K+1] += 1;
+
+    sums, resid = get_sums_and_resid(x,c,D,H)
+
+    return c, sums, resid
+end
+
+
+
 ## TODO
 # function vector_MPE_preconditioned(x::AbstractArray, K::Integer; atol = 1e-14, btol = 1e-14, c0 = nothing)
 #     x = typeof(x) <: AbstractVector ? x' : x

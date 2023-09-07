@@ -77,7 +77,7 @@ standard map is continuous on $\mathbb{T} \times \mathbb{R}$, but it is not on
 $\mathbb{R}^2$. The algorithms assume that the signal is continuous in
 $\mathbb{R}^2$, however, so we need to map the space to an appropriate one.
 For this, we will use the observable function
-```
+```math
 h(x, y) = \begin{pmatrix}
 \left(y + \frac{1}{2} \right)\cos(2\pi x) \\
 \left(y + \frac{1}{2} \right)\sin(2\pi x)
@@ -85,7 +85,7 @@ h(x, y) = \begin{pmatrix}
 ```
 
 ````julia
-rtol = 1e-8
+rtol = 1e-10
 Kinit = 50
 Kstride = 50
 Kmax = 400
@@ -144,14 +144,14 @@ end
 ````
 
 ````
-Number of trajectories for K=50 is 37
-Number of trajectories for K=100 is 21
-Number of trajectories for K=150 is 8
-Number of trajectories for K=200 is 6
-Number of trajectories for K=250 is 1
-Number of trajectories for K=300 is 5
+Number of trajectories for K=50 is 56
+Number of trajectories for K=100 is 20
+Number of trajectories for K=150 is 4
+Number of trajectories for K=200 is 2
+Number of trajectories for K=250 is 4
+Number of trajectories for K=300 is 1
 Number of trajectories for K=350 is 1
-Number of trajectories for K=400 is 21
+Number of trajectories for K=400 is 12
 
 ````
 
@@ -202,8 +202,8 @@ println("Invariant circle validation errors:
 ````
 Invariant circle validation errors:
    smallest --- 2.0211746724319608e-15
-   largest  --- 1.634572910924854e-5
-   median   --- 4.225798236619171e-9
+   largest  --- 3.0221917070596794e-5
+   median   --- 5.7912433203985446e-9
 
 
 ````

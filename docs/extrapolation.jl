@@ -67,14 +67,14 @@ f
 # $\mathbb{R}^2$. The algorithms assume that the signal is continuous in
 # $\mathbb{R}^2$, however, so we need to map the space to an appropriate one.
 # For this, we will use the observable function
-# ```
+# ```math
 # h(x, y) = \begin{pmatrix}
 # \left(y + \frac{1}{2} \right)\cos(2\pi x) \\
 # \left(y + \frac{1}{2} \right)\sin(2\pi x)
 # \end{pmatrix}
 # ```
 
-rtol = 1e-8
+rtol = 1e-10
 Kinit = 50
 Kstride = 50
 Kmax = 400
