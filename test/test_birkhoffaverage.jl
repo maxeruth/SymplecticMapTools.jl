@@ -19,16 +19,23 @@
        h, F, x0; Kinit, Kmax, Kstride, iterative=false, Nfactor=1.1, rre=false)
     crre, sumsrre, residrre, xsrre, hsrre, rnormrre, Krre, historyrre = adaptive_birkhoff_extrapolation(
         h, F, x0; Kinit, Kmax, Kstride, iterative=true, Nfactor=1, rre=true)
+    crrels, sumsrrels, residrrels, xsrrels, hsrrels, rnormrrels, Krrels, historyrrels = adaptive_birkhoff_extrapolation(
+        h, F, x0; Kinit, Kmax, Kstride, iterative=false, Nfactor=1, rre=true)
 
     # Test the iterative and direct methods give similar predictions
     @test norm(sums[:,1] - sumsls[:,1]) < 1e-8
     @test norm(xs[:, 1:Kinit] - xsls[:, 1:Kinit]) < 1e-14
     @test norm(hs[:, 1:Kinit] - hsls[:, 1:Kinit]) < 1e-14
 
-    # Test that mpe and rre give similar predictions
+    # Test that mpe and lsqr rre give similar predictions
     @test norm(sums[:,1] - sumsrre[:,1]) < 1e-6
     @test norm(xs[:, 1:Kinit] - xsrre[:, 1:Kinit]) < 1e-14
     @test norm(hs[:, 1:Kinit] - hsrre[:, 1:Kinit]) < 1e-14
+
+    # Test that mpe and direct rre give similar predictions
+    @test norm(sums[:,1] - sumsrrels[:,1]) < 1e-6
+    @test norm(xs[:, 1:Kinit] - xsrrels[:, 1:Kinit]) < 1e-14
+    @test norm(hs[:, 1:Kinit] - hsrrels[:, 1:Kinit]) < 1e-14
 
     # Birkhoff average should match the rotation number
     @test abs(dot(xs[2,1:2K+1],c) - 0.5) < 1e-8

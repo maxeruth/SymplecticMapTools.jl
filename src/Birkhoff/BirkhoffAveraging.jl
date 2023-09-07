@@ -119,7 +119,7 @@ end
 
 """
     birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
-                           N::Integer, K::Integer; iterative::Bool=true,
+                           N::Integer, K::Integer; iterative::Bool=false,
                            x_prev::Union{AbstractArray,Nothing}=nothing,
                            rre::Bool=false)
 
@@ -137,7 +137,7 @@ Use `x_prev` if you already know part of the sequence, but do not know the whole
 thing.
 """
 function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
-                                N::Integer, K::Integer; iterative::Bool=true,
+                                N::Integer, K::Integer; iterative::Bool=false,
                                 x_prev::Union{AbstractArray,Nothing}=nothing,
                                 rre::Bool=false)
     x = deepcopy(x0);
@@ -174,7 +174,7 @@ function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
         if iterative
             c, sums, resid, history = vector_rre_iterative(hs, K)
         else
-            error("No direct RRE implemented!");
+            c, sums, resid = vector_rre_backslash(hs, K)
         end
     else
         if iterative
@@ -189,9 +189,9 @@ end
 
 """
     adaptive_birkhoff_extrapolation(h::Function, F::Function,
-                    x0::AbstractVector; rtol::Number=1e-12, Kinit = 20,
-                    Kmax = 100, Kstride=20, iterative::Bool=true,
-                    Nfactor::Integer=1, rre::Bool=false)
+                    x0::AbstractVector; rtol::Number=1e-10, Kinit = 20,
+                    Kmax = 100, Kstride=20, iterative::Bool=false,
+                    Nfactor::Integer=1, rre::Bool=true)
 
 Adaptively applies `birkhoff_extrapolation` to find a good enough filter length
 `K`, where "good enough" is defined by the `rtol` optional argument.
@@ -225,9 +225,9 @@ Outputs:
   iteration
 """
 function adaptive_birkhoff_extrapolation(h::Function, F::Function,
-                    x0::AbstractVector; rtol::Number=1e-8, Kinit = 20,
-                    Kmax = 100, Kstride=20, iterative::Bool=true,
-                    Nfactor::Number=1, rre::Bool=false)
+                    x0::AbstractVector; rtol::Number=1e-10, Kinit = 20,
+                    Kmax = 100, Kstride=20, iterative::Bool=false,
+                    Nfactor::Number=1, rre::Bool=true)
     #
     d = length(h(x0));
     K = Kinit-Kstride
