@@ -16,7 +16,6 @@
 # For this example, we will use $k=0.7$, which gives a nice mix of chaos,
 # invariant circles, and islands.
 
-using Revise
 using SymplecticMapTools
 using CairoMakie
 using LinearAlgebra

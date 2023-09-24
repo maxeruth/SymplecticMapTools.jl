@@ -12,8 +12,9 @@ least-squares weighting)
 """
 function wba_weight(d::Integer, N::Integer)
     t = (1:N) ./ (N+1);
-    g = exp.(- 1 ./ ( t .* (1 .- t)));
-    return Diagonal(sqrt.(kron(g,ones(d))));
+    g = exp.(- 1 ./ ( t .* (1 .- t))) .+ 1e-16;
+    g = sqrt.(g ./ sum(g))
+    return Diagonal(kron(g,ones(d)));
 end
 
 
@@ -139,7 +140,7 @@ thing.
 function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
                                 N::Integer, K::Integer; iterative::Bool=false,
                                 x_prev::Union{AbstractArray,Nothing}=nothing,
-                                rre::Bool=false)
+                                rre::Bool=false, ϵ::Number=0.0)
     x = deepcopy(x0);
     h0 = h(x);
     d = length(h0);
@@ -172,19 +173,25 @@ function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
 
     if rre
         if iterative
-            c, sums, resid, history = vector_rre_iterative(hs, K)
+            c, sums, resid, history = vector_rre_iterative(hs, K; ϵ)
         else
-            c, sums, resid = vector_rre_backslash(hs, K)
+            c, sums, resid = vector_rre_backslash(hs, K; ϵ)
         end
     else
         if iterative
-            c, sums, resid, history = vector_mpe_iterative(hs, K)
+            c, sums, resid, history = vector_mpe_iterative(hs, K; ϵ)
         else
-            c, sums, resid = vector_mpe_backslash(hs, K)
+            c, sums, resid = vector_mpe_backslash(hs, K; ϵ)
         end
     end
 
     return c, reshape(sums, d, N+1), reshape(resid, d, N), xs, hs, history;
+end
+
+function unorm(hs::AbstractArray)
+    us = diff(hs, dims=2)
+    us2 = [ui'*ui for ui in eachcol(us)]
+    sqrt(weighted_birkhoff_average(us2))
 end
 
 """
@@ -227,7 +234,7 @@ Outputs:
 function adaptive_birkhoff_extrapolation(h::Function, F::Function,
                     x0::AbstractVector; rtol::Number=1e-10, Kinit = 20,
                     Kmax = 100, Kstride=20, iterative::Bool=false,
-                    Nfactor::Number=1, rre::Bool=true)
+                    Nfactor::Number=1, rre::Bool=true, ϵ::Number=0.0)
     #
     d = length(h(x0));
     K = Kinit-Kstride
@@ -239,11 +246,10 @@ function adaptive_birkhoff_extrapolation(h::Function, F::Function,
     while (K+Kstride <= Kmax) && (rnorm > rtol)
         K += Kstride;
         N = ceil(Int, 2*Nfactor*K / d);
-        # println("K=$K, N=$N")
 
         c, sums, resid, xs, hs, history = birkhoff_extrapolation(
-                                      h, F, x0, N, K; iterative, x_prev=xs, rre)
-        rnorm = norm(resid)
+                                      h, F, x0, N, K; iterative, x_prev=xs, rre, ϵ)
+        rnorm = norm(resid)/unorm(hs)
     end
 
     return c, sums, resid, xs, hs, rnorm, K, history
@@ -365,9 +371,89 @@ function find_rationals(ωs::AbstractVector, λs::AbstractVector, dmax::Integer,
     return ind, Nisland;
 end
 
+"""
+    chebyshev_companion_matrix(v::AbstractVector)
+
+Input:
+- `v`: The coefficients of a Chebyshev polynomial
+
+Output:
+- `C`: The Chebyshev companion (colleague) matrix of polynomial `v`
+"""
+function chebyshev_companion_matrix(v::AbstractVector)
+    K = length(v)-1
+    C = zeros(K, K)
+    C[1,2] = 1.
+    C[2,1] = 0.5;
+    for ii = 2:K-1
+        C[ii, ii+1] = 0.5
+        C[ii+1, ii] = 0.5
+    end
+
+    C[end, 1:end] += -v[1:end-1] ./ (2 .* v[end])
+    C
+end
+
+"""
+    palindromic_to_chebyshev(c::AbstractVector)
+
+Input:
+- `c`: A palindromic set of monomial coefficients for polynomial `p(z)`
+
+Output:
+- `v`: The coefficients of a Chebyshev polynomial `q` s.t.
+    `q((z+inv(z))/2) = p(z)`
+"""
+function palindromic_to_chebyshev(c::AbstractVector)
+    K = length(c)÷2
+    @assert length(c) == 2K+1
+    v = c[K+1:end]
+    v[2:end] .*= 2.
+    v
+end
+
+"""
+    palindromic_cheb_roots(c::AbstractVector)
+
+Get the roots of the chebyshev polynomial associated with the palindromic
+polynomial with coefficients `c`.
+
+Input:
+- `c`: A palindromic set of monomial coefficients for polynomial `p(z)`
+
+Output:
+- `v`: The roots of the polynomial `q` satisfying `q((z+inv(z))/2) = p(z)`
+"""
+function palindromic_cheb_roots(c::AbstractVector)
+    v = palindromic_to_chebyshev(c)
+    C = chebyshev_companion_matrix(v)
+    eigvals(C)
+end
+
+
+"""
+    cheb_roots_to_roots(μs)
+
+Input:
+- `μs`: The roots of the polynomial satisfying `q((z+inv(z))/2) = p(z)`, where
+   `p` is a palindromic polynomial
+
+Output:
+- `λs`: The roots of `p`
+"""
+function cheb_roots_to_roots(μs::AbstractVector)
+    K = length(μs)
+    λs = zeros(Complex{Float64}, 2K)
+    for ii = 1:K
+        λs[2ii-1:2ii] = roots(Polynomial([0.5, -μs[ii], 0.5]))
+    end
+
+    λs
+end
+
 function eigenvalues_and_project(hs, c; growth_tol=1e-5)
     sum_ave =  get_sum_ave(hs, c)
-    λs = roots(Polynomial(c));
+    λs = cheb_roots_to_roots(palindromic_cheb_roots(c));
     λs = λs[abs.(abs.(λs) .- 1) .< growth_tol]
     if length(λs) == 0
         @warn "No eigenvalues were found on the unit circle. This means rattol was probably too large"
@@ -398,12 +484,13 @@ function eigenvalues_and_project(hs, c; growth_tol=1e-5)
     return λs, ωs, sum_ave, coefs
 end
 
-function get_circle_coef(hs::AbstractArray, ω0::Number)
+function get_circle_coef(hs::AbstractArray, ω0::Number, maxNmode::Integer)
     den = denoms(ContFrac(ω0/2π));
     d, N = size(hs);
 
-    Nmode = min(floor(Int, N/2), maximum(den))
+    Nmode = minimum([floor(Int, N/4), maximum(den), maxNmode])
     Nmode = mod(Nmode, 2) == 0 ? Nmode - 1 : Nmode
+    N = min(N, 6*Nmode)
 
     # λ = exp(2π*im * ω0);
     ωs = zeros(Nmode);
@@ -414,11 +501,11 @@ function get_circle_coef(hs::AbstractArray, ω0::Number)
     end
 
     w = wba_weight(1, N)
-    w = ones(N)
+    # w = ones(N)
     w = w / sqrt(sum(w.^2))
 
     vs = Diagonal(w)*[exp(m*im*ωi) for m=0:N-1, ωi = ωs]
-    rhs = Diagonal(w)*hs'
+    rhs = Diagonal(w)*hs[:,1:N]'
 
     return vs \ rhs
 end
@@ -438,13 +525,15 @@ Optional Arguments:
 - `ratcutoff`: Relative prominence needed by a linear mode to qualify as
   "important" for deciding whether the sequence is an island
 - `max_island_d`: Maximum denominator considered for islands.
+- `maxNmode`: Maximum number of considered for the integration
 
 Output:
 - `z`: An invariant circle of type `FourierCircle`
 """
 function get_circle_info(hs::AbstractArray, c::AbstractArray;
                          rattol::Number=1e-8, ratcutoff::Number=1e-4,
-                         max_island_d::Integer=30)
+                         max_island_d::Integer=30, ϵ::Number=0.0,
+                         maxNmode::Integer=100)
     λs, ωs, sum_ave, coefs = eigenvalues_and_project(hs, c)
 
     if max_island_d == 0
@@ -464,7 +553,7 @@ function get_circle_info(hs::AbstractArray, c::AbstractArray;
     circle_coef = [];
     if Nisland == 1
         # Find coefficients of circles
-        circle_coef = get_circle_coef(hs, ω0)
+        circle_coef = get_circle_coef(hs, ω0, maxNmode)
     else
         # If there are islands, rerun extrapolation to find reduced filter
         d, N = size(hs);
@@ -472,13 +561,13 @@ function get_circle_info(hs::AbstractArray, c::AbstractArray;
         zs = Vector{Any}(undef, Nisland);
         K = length(c) ÷ 2;
         Kisland = K ÷ Nisland +1;
-        c_island, ~, resid, ~ = vector_mpe_iterative(hs_island, Kisland);
+        c_island, ~, resid = vector_rre_backslash(hs_island, Kisland; ϵ);
 
         λs, ωs, sum_ave, coefs = eigenvalues_and_project(hs_island, c_island)
 
         # Then, find coefficients of each island
         ω0 = ωs[1]*2π
-        circle_coef = get_circle_coef(hs_island, ω0)
+        circle_coef = get_circle_coef(hs_island, ω0, maxNmode)
     end
 
 
