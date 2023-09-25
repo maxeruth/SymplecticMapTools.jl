@@ -531,7 +531,7 @@ Output:
 - `z`: An invariant circle of type `FourierCircle`
 """
 function get_circle_info(hs::AbstractArray, c::AbstractArray;
-                         rattol::Number=1e-8, ratcutoff::Number=1e-4,
+                         rattol::Number=1e-8, ratcutoff::Number=1e-2,
                          max_island_d::Integer=30, ϵ::Number=0.0,
                          maxNmode::Integer=100)
     λs, ωs, sum_ave, coefs = eigenvalues_and_project(hs, c)
