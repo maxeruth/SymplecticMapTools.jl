@@ -90,6 +90,154 @@ function rectangular_window_weight(xs::AbstractArray, xlims::AbstractVector,
 end
 
 
+# """
+#     kernel_eigs(xs::AbstractArray, ϵ::Number, nev::Integer, σ::Number,
+#                 boundary_weights::Vector; kernel::Symbol=:SquaredExponential,
+#                 zero_mean = false, check = 1)
+#
+# Solve the the invariant eigenvalue problem, given by the Rayleigh quotient\\
+# > `min_c (‖GKc‖² + ‖Kc‖²_bd + ϵ‖c‖²_k)/‖Kc‖²` \\
+# where
+# - `‖GKc‖²` is a norm penalizing invariance (and possible a non-zero mean)
+# - `‖Kc‖²_bd` is a norm penalizing boundary violation
+# - `‖c‖²_k` is the smoothing kernel norm
+# - `‖Kc‖²` is the ℓ² norm of the points
+# The eigenvalue problem is solved via `Arpack.jl`
+#
+# Arguments:
+# - `xs`: interpolation points of size d × 2N, where xs[:, N+1:2N] = F.(xs[:, 1:N])
+# - `ϵ`: Amount of regularization
+# - `nev`: Number of eigenvalues to find
+# - `σ`: Kernel width
+# - `boundary_weights`: Boundary weighting vector, should be positive and O(1) at
+#   points `x` where one wants |k(x)| << 1
+# - `kernel`: Type of kernel to interpolate (see `KernelLabel`)
+# - `zero_mean = false`: Set to true to add a constraint that encourages `k` to
+#   have a zero mean. Useful when `xs` are sampled on an invariant set and
+#   boundary_weights=0
+# - `check = 1`: See `Arpack.eigs`. If 1, return all of the converged eigenvectors
+#   and eigenvalues. If 0, throw an error instead.
+#
+# Output:
+# - `λs`: The eigenvalues
+# - `vs`: The eigenvectors
+# - `k`: The kernel label. Use `set_c!(k, vs[:,n])` to load the `n`th eigenvector
+#   into `k`. By default, `k` stores the lowest order eigenvector.
+# """
+# function kernel_eigs(xs::AbstractArray, ϵ::Number, nev::Integer, σ::Number,
+#                      boundary_weights::Vector; kernel::Symbol=:SquaredExponential,
+#                      zero_mean = false, check = 1)
+#     d = size(xs, 1);
+#     N = size(xs, 2)÷2;
+#
+#     if (size(xs, 2) - 2N != 0) # Need to use an even number points
+#         xs = xs[:, 1:2N]
+#     end
+#
+#     k = KernelLabel(xs, zeros(2N), σ; kernel)
+#
+#     # Obtain and factorize kernel matrix
+#     K = Symmetric(get_matrix(k, xs));
+#     chol = cholesky(K, RowMaximum(), check=false)
+#     p = chol.piv;
+#     ip = invperm(p);
+#     L = chol.L[:, 1:chol.rank];
+#
+#     # Get constraint matrix
+#     i1 = 1:2:2N; i2 = 2:2:2N;
+#     GPtL_inv = L[ip[i1], :] - L[ip[i2], :]
+#     v_mean = ones(2N) ./ sqrt(2N);
+#     GPtL_mean = zero_mean ? (ones(2N)'*L ./ sqrt(2N))' : zeros(0, chol.rank)
+#
+#     # Find Eigenvalue problem matrices
+#     A = Symmetric(L'*L)
+#
+#     GPtL = vcat(GPtL_inv, GPtL_mean);
+#     W = Diagonal(boundary_weights)
+#     B = Symmetric(GPtL'*GPtL + ϵ*I + L[ip, :]'*W*L[ip, :])
+#
+#     # Call eigs
+#     λs, vs = Arpack.eigs(A,B; nev = nev, which = :LR, check = check);
+#
+#     # Post process
+#     λs = 1 ./ λs;
+#
+#     vs = L*(A \ vs) # Can we avoid this?
+#     vs = vs[ip, :]
+#     vs = vs * Diagonal([1. ./ norm(K*v) for v = eachcol(vs)])
+#
+#     Nλ = length(λs)
+#     if Nλ ≥ 1
+#         set_c!(k, vs[:, 1])
+#     end
+#
+#     if Nλ == nev # Arpack converged
+#         return λs, vs, k
+#     end
+#
+#     # Arpack did not converge
+#     λs_new = zeros(nev);
+#     vs_new = zeros(size(vs,1), nev);
+#     λs_new[1:Nλ] = λs;
+#     λs_new[Nλ+1:end] .= NaN;
+#     vs_new[:, 1:Nλ] = vs;
+#     vs_new[:, Nλ+1:end] .= NaN;
+#
+#     return λs_new, vs_new, k
+# end
+
+
+function get_A_operators(boundary_weights::Vector, δ::Number)
+    N = length(boundary_weights) ÷ 2;
+    A_entries = zeros(2,2,N);
+    Ainv_entries = zeros(2,2,N);
+    for ii = 1:N
+        w1, w2 = boundary_weights[2ii-1:2ii]
+        A_entries[:,:,ii] = [1+w1+δ -1 ; -1 1+w2+δ]
+
+        detA = w1 + w2 + w1*w2 + (2 + w1 + w2 + δ)*δ
+        Ainv_entries[:,:,ii] = [1+w2+δ 1 ; 1 1+w1+δ] ./ detA;
+    end
+
+    function block_mult(A)
+        function mymult!(res::AbstractVector, v, α, β::T) where T
+            @assert length(v)==2N
+            b = similar(v)
+            for ii = 1:N
+                a11 = A[1,1,ii];
+                a12 = A[1,2,ii];
+                a21 = A[2,1,ii];
+                a22 = A[2,2,ii];
+                v1  = v[2ii-1];
+                v2  = v[2ii];
+                if β == zero(T)
+                    res[2ii-1] = a11*v1 + a12*v2
+                    res[2ii]   = a21*v1 + a22*v2;
+                else
+                    res[2ii-1] = β*res[2ii-1] + α*(a11*v1 + a12*v2)
+                    res[2ii  ] = β*res[2ii  ] + α*(a21*v1 + a22*v2);
+                end
+            end
+
+            res
+        end
+
+        mymult!
+    end
+
+    Aprod! = block_mult(A_entries)
+    # res = zeros(2N)
+    # v = randn(2N);
+    # Aprod!(res, v, 1., 0.)
+    # println("$(res)")
+    Ainvprod! = block_mult(Ainv_entries)
+    # println("$(Ainvprod(v))")
+    A    = LinearOperator(Float64, 2N, 2N, true, true, Aprod!)
+    Ainv = LinearOperator(Float64, 2N, 2N, true, true, Ainvprod!)
+
+    return A, Ainv, A_entries, Ainv_entries
+end
+
 """
     kernel_eigs(xs::AbstractArray, ϵ::Number, nev::Integer, σ::Number,
                 boundary_weights::Vector; kernel::Symbol=:SquaredExponential,
@@ -112,9 +260,6 @@ Arguments:
 - `boundary_weights`: Boundary weighting vector, should be positive and O(1) at
   points `x` where one wants |k(x)| << 1
 - `kernel`: Type of kernel to interpolate (see `KernelLabel`)
-- `zero_mean = false`: Set to true to add a constraint that encourages `k` to
-  have a zero mean. Useful when `xs` are sampled on an invariant set and
-  boundary_weights=0
 - `check = 1`: See `Arpack.eigs`. If 1, return all of the converged eigenvectors
   and eigenvalues. If 0, throw an error instead.
 
@@ -126,7 +271,7 @@ Output:
 """
 function kernel_eigs(xs::AbstractArray, ϵ::Number, nev::Integer, σ::Number,
                      boundary_weights::Vector; kernel::Symbol=:SquaredExponential,
-                     zero_mean = false, check = 1)
+                     check = 1, δ::Number=1e-6)
     d = size(xs, 1);
     N = size(xs, 2)÷2;
 
@@ -136,40 +281,29 @@ function kernel_eigs(xs::AbstractArray, ϵ::Number, nev::Integer, σ::Number,
 
     k = KernelLabel(xs, zeros(2N), σ; kernel)
 
-    # Obtain and factorize kernel matrix
-    K = Symmetric(get_matrix(k, xs));
-    chol = cholesky(K, RowMaximum(), check=false)
-    p = chol.piv;
-    ip = invperm(p);
-    L = chol.L[:, 1:chol.rank];
-
-    # Get constraint matrix
-    i1 = 1:2:2N; i2 = 2:2:2N;
-    GPtL_inv = L[ip[i1], :] - L[ip[i2], :]
-    v_mean = ones(2N) ./ sqrt(2N);
-    GPtL_mean = zero_mean ? (ones(2N)'*L ./ sqrt(2N))' : zeros(0, chol.rank)
-
-    # Find Eigenvalue problem matrices
-    A = Symmetric(L'*L)
-
-    GPtL = vcat(GPtL_inv, GPtL_mean);
-    W = Diagonal(boundary_weights)
-    B = Symmetric(GPtL'*GPtL + ϵ*I + L[ip, :]'*W*L[ip, :])
-
-    # Call eigs
-    λs, vs = Arpack.eigs(A,B; nev = nev, which = :LR, check = check);
-
-    # Post process
-    λs = 1 ./ λs;
-
-    vs = L*(A \ vs) # Can we avoid this?
-    vs = vs[ip, :]
-    vs = vs * Diagonal([1. ./ norm(K*v) for v = eachcol(vs)])
+    X, Xinv, X_entries, Xinv_entries =  get_A_operators(boundary_weights, δ)
+    K = get_matrix(k, xs) .* (1/ϵ);
+    for ii = 1:N
+        K[2ii-1:2ii, 2ii-1:2ii] .= K[2ii-1:2ii, 2ii-1:2ii] + Xinv_entries[:,:,ii]
+    end
+    chol_check = true
+    println("check = $(chol_check)")
+    cholop = opCholesky(K; check=chol_check)
+    op = Xinv - Xinv*cholop*Xinv
+    op.symmetric=true;
+    op.hermitian=true;
+    λs, vs = Arpack.eigs(op; nev = nev, which = :LM, check = check);
+    λs = inv.(λs) .- δ
 
     Nλ = length(λs)
+    for ii = 1:Nλ
+        vs[:, ii] = cholop*Xinv*vs[:,ii]
+    end
     if Nλ ≥ 1
         set_c!(k, vs[:, 1])
     end
+
+
 
     if Nλ == nev # Arpack converged
         return λs, vs, k
