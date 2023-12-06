@@ -19,7 +19,8 @@ makedocs(
             "Birkhoff Extrapolation" => "examples/extrapolation/extrapolation.md",
             "Approximately Invariant Kernel Functions" => "examples/kernel/kernel.md"
         ],
-        "Documentation" => "lib/Documentation.md"
+        "Documentation" => "lib/Documentation.md",
+        "Internal Documentation" => "lib/Internal.md"
     ]
 )
 
