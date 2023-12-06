@@ -195,12 +195,12 @@ function mpe_p_2(K::Integer)
     LinearOperator(Float64, M, N, false, false, P_mul!, P_tmul!)
 end
 
-"""
-    rre_p(K::Integer)
-
-Function used for iterative solutions of the RRE problem. The matrix, when
-applied to a vector of
-"""
+# """
+#     rre_p(K::Integer)
+#
+# Function used for iterative solutions of the RRE problem. The matrix, when
+# applied to a vector of
+# """
 function rre_p(K::Integer)
     M = K;
     N = 2K+1;

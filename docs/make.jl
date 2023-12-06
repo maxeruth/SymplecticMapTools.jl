@@ -1,8 +1,8 @@
 using Documenter
 using SymplecticMapTools
-# using Pkg; Pkg.add("Plots"); Pkg.add("CairoMakie")
-# using Plots
-# using CairoMakie
+using Pkg; Pkg.add("Plots"); Pkg.add("CairoMakie")
+using Plots
+using CairoMakie
 
 # include("./literate_examples.jl")
 
@@ -19,7 +19,8 @@ makedocs(
             "Birkhoff Extrapolation" => "examples/extrapolation/extrapolation.md",
             "Approximately Invariant Kernel Functions" => "examples/kernel/kernel.md"
         ],
-        "Documentation" => "lib/Documentation.md"
+        "Documentation" => "lib/Documentation.md",
+        "Internal Documentation" => "lib/Internal.md"
     ]
 )
 

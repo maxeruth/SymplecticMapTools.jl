@@ -12,7 +12,8 @@ end
 
 Applies Birkhoff vector MPE to a sequence `x_n = x[:, n]`
 """
-function vector_mpe_backslash(x::AbstractArray, K::Integer)
+function vector_mpe_backslash(x::AbstractArray, K::Integer; ϵ = 0.0)
+    if ϵ != 0.0; println("Warning: vector_mpe_iterative not supported for ϵ!=0.0"); end
     x = typeof(x) <: AbstractVector ? x' : x
     u = diff(x, dims=2)
     d, L = size(u);
@@ -52,7 +53,8 @@ Arguments:
 - `atol`, `btol`: Tolerances. See `IterativeSolvers.lsqr!`
 """
 function vector_mpe_iterative(x::AbstractArray, K::Integer; atol = 1e-14,
-                              btol = 1e-14, c0 = nothing)
+                              btol = 1e-14, c0 = nothing, ϵ = 0.0)
+    if ϵ != 0.0; println("Warning: vector_mpe_iterative not supported for ϵ!=0.0"); end
     x = typeof(x) <: AbstractVector ? x' : x
     u = diff(x, dims=2)
     d, L = size(u);
@@ -84,7 +86,8 @@ function vector_mpe_iterative(x::AbstractArray, K::Integer; atol = 1e-14,
 end
 
 # Iterative MPE with dense matrices. Used for testing
-function vector_mpe_iterative_full(x::AbstractArray, K::Integer; atol = 1e-14, btol = 1e-14)
+function vector_mpe_iterative_full(x::AbstractArray, K::Integer; atol = 1e-14, btol = 1e-14, ϵ=0.0)
+    if ϵ != 0.0; println("Warning: vector_mpe_iterative_full not supported for ϵ!=0.0"); end
     x = typeof(x) <: AbstractVector ? x' : x
     u = diff(x, dims=2)
     d, L = size(u);
@@ -115,7 +118,8 @@ function vector_mpe_iterative_full(x::AbstractArray, K::Integer; atol = 1e-14, b
     return c, sums ,resid, history
 end
 
-function vector_rre_iterative(x::AbstractArray, K::Integer; atol=1e-14, btol=1e-14)
+function vector_rre_iterative(x::AbstractArray, K::Integer; atol=1e-14, btol=1e-14, ϵ=0.0)
+    if ϵ != 0.0; println("Warning: vector_rre_iterative not supported for ϵ!=0.0"); end
     x = typeof(x) <: AbstractVector ? x' : x
     u = diff(x, dims=2)
     d, L = size(u);
@@ -143,7 +147,7 @@ function vector_rre_iterative(x::AbstractArray, K::Integer; atol=1e-14, btol=1e-
 end
 
 
-function vector_rre_backslash(x::AbstractArray, K::Integer; atol=1e-14, btol=1e-14)
+function vector_rre_backslash(x::AbstractArray, K::Integer; atol=1e-14, btol=1e-14, ϵ=0.0)
     x = typeof(x) <: AbstractVector ? x' : x
     u = diff(x, dims=2)
     d, L = size(u);
@@ -158,6 +162,11 @@ function vector_rre_backslash(x::AbstractArray, K::Integer; atol=1e-14, btol=1e-
 
     A = D*H*P';
     b = - D*H[:, K+1];
+    if ϵ != zero(typeof(ϵ))
+        WKinv = sqrt(ϵ)*inv(wba_weight(1, 2K+1))
+        A = vcat(A, WKinv*P')
+        b = vcat(b, WKinv[:,K+1])
+    end
 
     c = P'*(A\b);
     c[K+1] += 1;
