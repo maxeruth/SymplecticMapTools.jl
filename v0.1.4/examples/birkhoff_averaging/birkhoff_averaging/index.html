@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Birkhoff Averages · SymplecticMapTools</title><meta name="title" content="Birkhoff Averages · SymplecticMapTools"/><meta property="og:title" content="Birkhoff Averages · SymplecticMapTools"/><meta property="twitter:title" content="Birkhoff Averages · SymplecticMapTools"/><meta name="description" content="Documentation for SymplecticMapTools."/><meta property="og:description" content="Documentation for SymplecticMapTools."/><meta property="twitter:description" content="Documentation for SymplecticMapTools."/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">SymplecticMapTools</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">SymplecticMapTools.jl</a></li><li><span class="tocitem">Examples</span><ul><li class="is-active"><a class="tocitem" href>Birkhoff Averages</a></li><li><a class="tocitem" href="../../extrapolation/extrapolation/">Birkhoff Extrapolation</a></li><li><a class="tocitem" href="../../kernel/kernel/">Approximately Invariant Kernel Functions</a></li></ul></li><li><a class="tocitem" href="../../../lib/Documentation/">Documentation</a></li><li><a class="tocitem" href="../../../lib/Internal/">Internal Documentation</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Birkhoff Averages</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Birkhoff Averages</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/maxeruth/SymplecticMapTools.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/maxeruth/SymplecticMapTools.jl/blob/main/docs/birkhoff_averaging.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Birkhoff-Averaging"><a class="docs-heading-anchor" href="#Birkhoff-Averaging">Birkhoff Averaging</a><a id="Birkhoff-Averaging-1"></a><a class="docs-heading-anchor-permalink" href="#Birkhoff-Averaging" title="Permalink"></a></h1><p>This is an example of using the weighted Birkhoff averaging functions. Given a dynamical system <span>$F : \mathbb{R}^d \to \mathbb{R}^d$</span>, an observation function <span>$h : \mathbb{R}^d \to \mathbb{R}^n$</span>, and an initial point <span>$x_0 \in \mathbb{R}^d$</span>, the Birkhoff average is defined as</p><p class="math-container">\[B[h](x_0) \lim_{T\to\infty} \frac{1}{T}\sum_{t = 0}^{T-1} (h \circ F^t)(x_0).\]</p><p>It has been shown in a series of articles (see <a href="https://arxiv.org/abs/2001.00086">Sander and Meiss</a> and the citations within, as well as <a href="https://arxiv.org/abs/1601.06051">Quantitative Periodicity</a> for more detailed statements) that if <span>$h\in C^\infty$</span> and the trajectory starting at <span>$x_0$</span> lies on a <span>$C^\infty$</span> invariant circle or island chain, the Birkhoff average can be improved via weighting. Particularly, the formula is given by</p><p class="math-container">\[WB[h](x_0) = \lim_{T\to\infty} \sum_{t = 0}^{T-1} w_{t,T} (h \circ F^t)(x_0),\]</p><p>where <span>$w_{t,T}$</span> is found by sampling a smooth windowing function <span>$\alpha \in C^\infty$</span> with <span>$\mathrm{supp}(\alpha) = [0,1]$</span> as</p><p class="math-container">\[w_{t,T} = \frac{1}{S} \alpha \left(\frac{t}{T+1}\right), \qquad S = \sum_{t = 1}^T \alpha \left(\frac{t}{T+1}\right).\]</p><p>When this average is performed on a smooth integrable trajectory, the error is <span>$\mathcal{O}(T^{-M})$</span> for all <span>$M$</span>. Otherwise, in chaos, the error goes as <span>$\mathcal{O}(T^{-1/2})$</span>.</p><p>In this document, we show how trajectories of the standard map can be classified via the convergence of a period-doubling adaptive version of this algorithm. Following Sander and Meiss, we consider the finite weighted Birkhoff average as</p><p class="math-container">\[WB_T[h](x_0) =  \sum_{t = 0}^{T-1} w_{t,T} (h \circ F^t)(x_0).\]</p><p>Then, we consider the algorithm to be converged if <span>$| WB_{2T} - WB_T | &lt; \epsilon$</span> for some tolerance <span>$\epsilon$</span>. This can be performed in <span>$\mathcal{O}(T \log T)$</span> time by taking the Birkhoff average after every doubling of <span>$T$</span>.</p><p>We will work with he standard map <span>$F : (x_t, y_t) \mapsto (x_{t+1}, y_{t+1})$</span>, given by</p><p class="math-container">\[\begin{aligned}
+    x_{t+1} &amp;= x_t + y_{t+1} \mod 1, \\
+    y_{t+1} &amp;= y_t - \frac{k}{2\pi} \sin(2\pi x_t).
+\end{aligned}\]</p><p>We will average over the quantity <span>$h(x,y) = y$</span>. The average of this quantity gives the rotational transform of the invariant circle (NOTE: here we distinguish between rotational transform and rotation number, where rotational transform is defined as the twist around the torus and rotation number would be defined off of a ).</p><p>First, we show an example of calling the finite weighted Birkhoff average. By changing <span>$T$</span>, one can adjust the accuracy of the average. By changing <span>$x_0$</span>, one can choose between chaos and not chaos.</p><pre><code class="language-julia hljs">using Revise
+using SymplecticMapTools
+using CairoMakie
+using Sobol</code></pre><pre><code class="language-julia hljs">k_sm = 0.7;
+F = standard_map_F(k_sm);
+
+T = 100
+x0 = [0.4, 0.5]; # Invariant Circle
+# x0 = [0.49, 0.0]; # Chaos
+
+
+xs = zeros(2, T);
+xs[:, 1] = x0
+hs = zeros(T);
+hs[1] = x0[2];
+for ii = 2:T
+    xs[:,ii] = F(xs[:,ii-1])
+    hs[ii] = xs[2, ii]
+end
+
+# Find the Average
+ave = weighted_birkhoff_average(hs)
+println(&quot;The rotation number (Birkhoff average) is $(ave)&quot;)
+
+# Plot the trajectory on the standard map
+f, xs_pp = poincare_plot([0,1], [0,1], F, 500, 1000, title=&quot;Standard Map, k = $(k_sm)&quot;)
+ax = contents(f[1, 1])
+plot!(xs[1,:], xs[2,:], color=:red, markersize=20)
+
+f</code></pre><p><img src="../birkhoff_averaging-5.png" alt/></p><p>We see that the rotation number for the trajectory above is close to <span>$0.5$</span>. This makes sense, because the island chain has two circles.</p><p>In order to show that the convergence is dependent on the initial orbit, we reproduce a figure from Sander and Meiss. Given a set of initial points on the standard map, we will plot <span>$WB_T$</span> vs <span>$T$</span>, showing the separation.</p><pre><code class="language-julia hljs"># Get averages at each $T$ in the sorted list of integers $T$
+function get_averages(F, h, x0, Ts)
+    NT = length(Ts); Tmax = maximum(Ts)
+    aves = zeros(NT); xs = zeros(2, Tmax); hs = zeros(Tmax)
+    xs[:,1] = x0; hs[1] = h(x0)
+
+    jj = 1
+    for t = 2:Tmax
+        xs[:, t] = F(xs[:, t-1]); hs[t] = h(xs[:,t])
+
+        if t == Ts[jj]
+            aves[jj] = weighted_birkhoff_average(hs[1:Ts[jj]]); jj = jj+1
+        end
+    end
+
+    return xs, aves
+end</code></pre><pre><code class="nohighlight hljs">get_averages (generic function with 1 method)</code></pre><pre><code class="language-julia hljs">h = (x) -&gt; x[2];
+
+# T values to use
+Tmin = 100; Tmax = 50000; NT = 100;
+Ts = Int.(floor.(LinRange(Tmin, Tmax, NT)))
+Ts = vcat(Ts, Tmax*2) # This is the &quot;true&quot; value
+
+# Initial Points
+Ny = 50; ys = LinRange(0, 0.5, Ny);
+
+# Create figure
+f = CairoMakie.Figure(resolution=(800,400));
+ax1 = CairoMakie.Axis(f[1,1],  yscale=log10, xlabel=&quot;T&quot;, ylabel=&quot;error&quot;);
+ax2 = CairoMakie.Axis(f[1,2], xlabel=&quot;x&quot;, ylabel=&quot;y&quot;);
+
+# Loop over trajectories
+for (jj, y) in enumerate(ys)
+    xs, aves = get_averages(F, h, [0.45, y], Ts)
+    errs = abs.(aves[1:end-1] .- aves[end])
+
+    color = errs[end] &lt; 1e-10 ? :blue : :black
+    label = errs[end] &lt; 1e-10 ? &quot;\&quot;Nice\&quot;&quot; : &quot;Chaos&quot;
+    CairoMakie.lines!(ax1, Ts[1:end-1], errs[:] .+ 1e-16; color);
+    CairoMakie.scatter!(ax2, xs[1, :], xs[2, :]; color, markersize=2, label);
+end
+CairoMakie.scatter!(ax2, ones(Ny).*0.45, ys; color=:red, markersize=6, label=&quot;InitialPoints&quot;)
+axislegend(ax2, merge=true)
+
+display(f);</code></pre><pre><code class="nohighlight hljs">┌ Warning: Assignment to `xs` in soft scope is ambiguous because a global variable by the same name exists: `xs` will be treated as a new local. Disambiguate by using `local xs` to suppress this warning or `global xs` to assign to the existing global variable.
+└ @ /mnt/c/Users/mer335/Documents/GitHub/SymplecticMapTools.jl/docs/src/examples/birkhoff_averaging/birkhoff_averaging.md:18
+</code></pre><p>We see that we successfully distinguish between &quot;nice&quot; trajectories like invariant circles and islands and chaotic ones. We can then use this with the adaptive average to categorize trajectories.</p><pre><code class="language-julia hljs"># Create a figure that categorizes trajectories as chaotic or not-chaotic.
+s = SobolSeq([0,0],[1,1]);
+N_init = 250;
+T_init = 250; T_max = (2^7)*T_init
+println(&quot;T_max = $(T_max)&quot;)
+
+f = Figure(resolution=(800,800))
+ax = Axis(f[1,1], xlabel=&quot;x&quot;, ylabel=&quot;y&quot;);
+for ii = 1:N_init
+    ave, xs, hs, conv_flag = doubling_birkhoff_average(h, F, next!(s); T_init, T_max)
+
+    color = conv_flag ? :blue      : :black
+    label = conv_flag ? &quot;\&quot;Nice\&quot;&quot; : &quot;Chaos&quot;
+    CairoMakie.scatter!(ax, xs[1, :], xs[2, :]; color, markersize=2, label);
+end
+axislegend(ax, merge=true)
+
+f</code></pre><p><img src="../birkhoff_averaging-10.png" alt/></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../../">« SymplecticMapTools.jl</a><a class="docs-footer-nextpage" href="../../extrapolation/extrapolation/">Birkhoff Extrapolation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Thursday 7 December 2023 00:32">Thursday 7 December 2023</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
