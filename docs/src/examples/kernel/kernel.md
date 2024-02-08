@@ -24,13 +24,13 @@ $y_1 = x_1$, $y_2 = F(x_1)$, $y_3 = x_2$, $y_4 = F(x_2)$, etc.
 `SymplecticMapTools` comes equipped with sampling schemes for rectangular
 domains. Consider the symplectic map:
 
-````julia
+````@example kernel
 using SymplecticMapTools
 using CairoMakie
 using LinearAlgebra
 ````
 
-````julia
+````@example kernel
 k_sm = 0.3;
 F = standard_map_F(k_sm);
 
@@ -48,7 +48,6 @@ axislegend()
 
 f
 ````
-![](kernel-4.png)
 
 Above is a Poincare plot of the standard map with $k = 0.3$, along with the
 points $y_n$ used for the kernel method. Now, to apply the method, we also need
@@ -60,7 +59,7 @@ sum of logistic functions. A simple version of this is implemented in
 `window_weight` for maps in $\mathbb{T} \times \mathbb{R}$ and
 `rectangular_window_weight` for maps in $\mathbb{R}^2$:
 
-````julia
+````@example kernel
 lims = [0.01, 0.99]; # window size, includes the boundaries
 α = 0.002;           # Transition length scale
 w = window_weight(xs, lims, α)
@@ -72,7 +71,6 @@ plot!(xs[2, :], w)
 
 f
 ````
-![](kernel-6.png)
 
 The above plot shows how the weighting applys to the vertical component. We see we are
 applying our boundary conditions at the top and bottom, but not in the
@@ -104,7 +102,7 @@ $h = 0$ regardless of the map, a decidedly unhelpful function).
 
 We can see an output approximately invariant function in the following block:
 
-````julia
+````@example kernel
 ϵ = 1e-8 # Weight of regularization. Should be small and nonzero
 nev = 1  # Number of eigenvalues/eigenvectors to find
 σ = 0.25 # Length scale of the kernel
@@ -117,7 +115,6 @@ f, f_grid = plot_on_grid(0:0.01:1, 0:0.01:1, k; levels=30,
                          title="Approximately Invariant Eigenfunction")
 f
 ````
-![](kernel-8.png)
 
 Qualitatively, we see the contours of the label function matches the Poincare
 plot well. Additionally, the value of $\lambda$ tells us that
@@ -142,7 +139,7 @@ certain annulus.
 
 We can apply this method using the function `kernel_bvp`:
 
-````julia
+````@example kernel
 hbd = [xi[2] > 0.5 ? 1. : -1. for xi = eachcol(xs)]
 k, R, E_bd, E_inv, E_K = kernel_bvp(xs, ϵ, σ, w, hbd; kernel)
 hs = evaluate(k, xs)
@@ -156,7 +153,6 @@ f, f_grid = plot_on_grid(0:0.01:1, 0:0.01:1, k; levels=30,
                          title="Approximately Invariant BVP")
 f
 ````
-![](kernel-10.png)
 
 Again, we see a very similar invariant function, with
 $E_{\mathrm{Inv}} \ll E_{L^2}$.

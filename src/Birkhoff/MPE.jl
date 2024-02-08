@@ -154,6 +154,7 @@ function vector_rre_backslash(x::AbstractArray, K::Integer; atol=1e-14, btol=1e-
 
     N = 2K+1;
     M = L - N + 1;
+    # println("d = $d, M = $M, K = $K")
     @assert (d * M ≥ K)
 
     P = Matrix(rre_p(K));

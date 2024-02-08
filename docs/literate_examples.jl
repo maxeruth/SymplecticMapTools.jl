@@ -1,6 +1,6 @@
 using Literate
 using Base
-execute = true
+execute = false
 # ENV["JULIA_DEBUG"]="Literate"
 Literate.notebook("./extrapolation.jl", pwd()*"/../examples/"; execute)
 Literate.markdown("./extrapolation.jl", pwd()*"/../docs/src/examples/extrapolation/"; execute)
