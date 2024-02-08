@@ -35,14 +35,14 @@ We will average over the quantity $h(x,y) = y$. The average of this quantity giv
 
 First, we show an example of calling the finite weighted Birkhoff average. By changing $T$, one can adjust the accuracy of the average. By changing $x_0$, one can choose between chaos and not chaos.
 
-````julia
+````@example birkhoff_averaging
 using Revise
 using SymplecticMapTools
 using CairoMakie
 using Sobol
 ````
 
-````julia
+````@example birkhoff_averaging
 k_sm = 0.7;
 F = standard_map_F(k_sm);
 
@@ -71,13 +71,12 @@ plot!(xs[1,:], xs[2,:], color=:red, markersize=20)
 
 f
 ````
-![](birkhoff_averaging-5.png)
 
 We see that the rotation number for the trajectory above is close to $0.5$. This makes sense, because the island chain has two circles.
 
 In order to show that the convergence is dependent on the initial orbit, we reproduce a figure from Sander and Meiss. Given a set of initial points on the standard map, we will plot $WB_T$ vs $T$, showing the separation.
 
-````julia
+````@example birkhoff_averaging
 # Get averages at each $T$ in the sorted list of integers $T$
 function get_averages(F, h, x0, Ts)
     NT = length(Ts); Tmax = maximum(Ts)
@@ -97,11 +96,7 @@ function get_averages(F, h, x0, Ts)
 end
 ````
 
-````
-get_averages (generic function with 1 method)
-````
-
-````julia
+````@example birkhoff_averaging
 h = (x) -> x[2];
 
 # T values to use
@@ -131,17 +126,12 @@ CairoMakie.scatter!(ax2, ones(Ny).*0.45, ys; color=:red, markersize=6, label="In
 axislegend(ax2, merge=true)
 
 display(f);
-````
-
-````
-┌ Warning: Assignment to `xs` in soft scope is ambiguous because a global variable by the same name exists: `xs` will be treated as a new local. Disambiguate by using `local xs` to suppress this warning or `global xs` to assign to the existing global variable.
-└ @ /mnt/c/Users/mer335/Documents/GitHub/SymplecticMapTools.jl/docs/src/examples/birkhoff_averaging/birkhoff_averaging.md:18
-
+nothing #hide
 ````
 
 We see that we successfully distinguish between "nice" trajectories like invariant circles and islands and chaotic ones. We can then use this with the adaptive average to categorize trajectories.
 
-````julia
+````@example birkhoff_averaging
 # Create a figure that categorizes trajectories as chaotic or not-chaotic.
 s = SobolSeq([0,0],[1,1]);
 N_init = 250;
@@ -161,7 +151,6 @@ axislegend(ax, merge=true)
 
 f
 ````
-![](birkhoff_averaging-10.png)
 
 ---
 

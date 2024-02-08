@@ -20,21 +20,19 @@ circles of the Chirikov standard map. The standard map is given by
 For this example, we will use $k=0.7$, which gives a nice mix of chaos,
 invariant circles, and islands.
 
-````julia
-using Revise
+````@example extrapolation
 using SymplecticMapTools
 using CairoMakie
 using LinearAlgebra
 ````
 
-````julia
+````@example extrapolation
 k_sm = 0.7
 F = standard_map_F(k_sm)
 
 f, xs_pp = poincare_plot([0,1], [0,1], F, 500, 1000, title="Standard Map, k = $(k_sm)")
 f
 ````
-![](extrapolation-5.png)
 
 The extrapolation method presented here has two steps:
 1. Perform an extrapolation method (minimal polynomial extrapolation (MPE) or
@@ -53,7 +51,7 @@ initial points sampled from a `SoboloSeq` (see
 [Sobol.jl](https://github.com/JuliaMath/Sobol.jl)). So, we will simply use
 those:
 
-````julia
+````@example extrapolation
 Ncircle = 100
 
 resolution=(800, 800)
@@ -66,7 +64,6 @@ ax = Axis(f[1,1], xlabel = "x", ylabel = "y", title = "Initial points");
 scatter!(x_init)
 f
 ````
-![](extrapolation-7.png)
 
 Then, we find extrapolated models at each of these points. The model will be
 obtained via the `adaptive_birkhoff_extrapolation` function.
@@ -84,7 +81,7 @@ h(x, y) = \begin{pmatrix}
 \end{pmatrix}
 ```
 
-````julia
+````@example extrapolation
 rtol = 1e-10
 Kinit = 50
 Kstride = 50
@@ -103,21 +100,7 @@ for ii = 1:Ncircle
 end
 ````
 
-````
-ii = 10/100
-ii = 20/100
-ii = 30/100
-ii = 40/100
-ii = 50/100
-ii = 60/100
-ii = 70/100
-ii = 80/100
-ii = 90/100
-ii = 100/100
-
-````
-
-````julia
+````@example extrapolation
 markersize=5
 f = Figure(;resolution, fontsize);
 ax = Axis(f[1,1], xlabel="x", ylabel="y");
@@ -132,34 +115,21 @@ end
 axislegend(ax, merge=true)
 f
 ````
-![](extrapolation-10.png)
 
 The above is a plot which shows the trajectories as black if the extrapolation algorithm converged to the tolerance of `1e-7` and red if they did not. We see that the red trajectories did not converge quickly, and they correlate strongly with whether the trajectory is in chaos. We can check the filter length for the values of $K$ we iterated over:
 
-````julia
+````@example extrapolation
 for Ki = Kinit:Kstride:Kmax
     Ksum = sum(Ks .== Ki)
     println("Number of trajectories for K=$(Ki) is $(Ksum)")
 end
 ````
 
-````
-Number of trajectories for K=50 is 56
-Number of trajectories for K=100 is 20
-Number of trajectories for K=150 is 4
-Number of trajectories for K=200 is 2
-Number of trajectories for K=250 is 4
-Number of trajectories for K=300 is 1
-Number of trajectories for K=350 is 1
-Number of trajectories for K=400 is 12
-
-````
-
 We see that most trajectories are classified when $K \leq 200$, with only a few being classified later. Additionally, those that are mis-classified tend to be at the edges of island chains or chaos.
 
 Now, we turn to finding models for the invariant circles. We do this via the function `get_circle_info`.
 
-````julia
+````@example extrapolation
 zs = Vector{FourierCircle}(undef, Ncircle)
 for ii = (1:Ncircle)[rnorms .< rtol]
     zs[ii] = get_circle_info(hs[ii], cs[ii])
@@ -168,7 +138,7 @@ end
 
 Additionally, for the special case where we need to work with observations from $h : \mathbb{T}\times\mathbb{R} \to \mathbb{R}^2$, we have a plotting routine that can be used to plot the invariant circles in $\mathbb{R}^2$ given an inverse function $h^{-1}$. This is done in the following:
 
-````julia
+````@example extrapolation
 f = Figure(;resolution, fontsize);
 ax = Axis(f[1,1], xlabel="x", ylabel="y")
 xlims!(0, 1); ylims!(0,1)
@@ -179,11 +149,10 @@ end
 axislegend(ax, merge=true)
 f
 ````
-![](extrapolation-16.png)
 
 In the above plot, we have plotted the trajectories on the found invariant circles. We see that the trajectories qualitatively match well. Additionally, we can use the function `get_circle_residual` to find a validation error. This is useful in automatically identifying cases where the found Fourier series is incorrect.
 
-````julia
+````@example extrapolation
 N_norm = 6;
 errs_validation = zeros(Ncircle)
 for ii = (1:Ncircle)[rnorms .< rtol]
@@ -197,15 +166,6 @@ println("Invariant circle validation errors:
    largest  --- $(maximum(errs_validation[ind]))
    median   --- $(sort!(errs_validation[ind])[sum(ind)÷2])
 ")
-````
-
-````
-Invariant circle validation errors:
-   smallest --- 2.0211746724319608e-15
-   largest  --- 3.0221917070596794e-5
-   median   --- 5.7912433203985446e-9
-
-
 ````
 
 ---
