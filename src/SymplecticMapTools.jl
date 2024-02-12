@@ -35,6 +35,7 @@ include("./InvariantCircles/InvariantCircles.jl")
 include("./InvariantCircles/ConnectingOrbit.jl")
 include("./LabelFunction/KernelLabel.jl")
 include("./Birkhoff/BirkhoffAveraging.jl")
+include("./LyapunovExponents/LyapunovExponents.jl")
 include("./Examples/Examples.jl")
 
 
@@ -72,6 +73,8 @@ export vector_mpe_backslash, vector_mpe_iterative, ContFrac, big_cont_frac_eval,
        weighted_birkhoff_average, doubling_birkhoff_average,
        birkhoff_extrapolation, adaptive_birkhoff_extrapolation, sum_stats,
        get_sum_ave, get_circle_info
+# LyapunovExponents.jl
+export lyapunov_exponent, lyapunov_exponents
 
 
 # using CairoMakie
