@@ -9,7 +9,8 @@ using CairoMakie
 makedocs(
     sitename = "SymplecticMapTools",
     format = Documenter.HTML(
-        prettyurls = get(ENV, "CI", nothing) == "true"
+        prettyurls = get(ENV, "CI", nothing) == "true",
+        size_threshold = 10240000
     ),
     modules = [SymplecticMapTools],
     pages = [
