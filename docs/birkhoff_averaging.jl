@@ -100,7 +100,7 @@ Ts = vcat(Ts, Tmax*2) # This is the "true" value
 Ny = 50; ys = LinRange(0, 0.5, Ny);
 
 ## Create figure
-f = CairoMakie.Figure(resolution=(800,400));
+f = CairoMakie.Figure(size=(800,400));
 ax1 = CairoMakie.Axis(f[1,1],  yscale=log10, xlabel="T", ylabel="error");
 ax2 = CairoMakie.Axis(f[1,2], xlabel="x", ylabel="y");
 
@@ -128,7 +128,7 @@ N_init = 250;
 T_init = 250; T_max = (2^7)*T_init
 println("T_max = $(T_max)")
 
-f = Figure(resolution=(800,800))
+f = Figure(size=(800,800))
 ax = Axis(f[1,1], xlabel="x", ylabel="y");
 for ii = 1:N_init
     ave, xs, hs, conv_flag = doubling_birkhoff_average(h, F, next!(s); T_init, T_max)

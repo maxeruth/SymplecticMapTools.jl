@@ -34,7 +34,7 @@ xb = [0., 1.]
 yb = [0., 1.]
 xs = kernel_sample_F(F, N, xb, yb);
 ylims = yb
-f, xs_pp = SymplecticMapTools.poincare_plot([0,1], [0,1], F, N, 500; ylims, resolution=(600, 600),
+f, xs_pp = SymplecticMapTools.poincare_plot([0,1], [0,1], F, N, 500; ylims, size=(600, 600),
                          title="Standard Map, k = $(k_sm)")
 ax = contents(f[1, 1])
 plot!(xs[1,1:2:end], xs[2,1:2:end], color=:black, markersize=7, label=L"x_n")
@@ -57,8 +57,8 @@ lims = [0.01, 0.99]; # window size, includes the boundaries
 α = 0.002;           # Transition length scale
 w = window_weight(xs, lims, α)
 
-resolution = (700, 400); fontsize=25;
-f = Figure(;resolution, fontsize)
+size = (700, 400); fontsize=25;
+f = Figure(;size, fontsize)
 ax = Axis(f[1,1], xlabel=L"x_2", ylabel=L"w")
 plot!(xs[2, :], w)
 
@@ -102,7 +102,7 @@ kernel = :FourierSE # Product kernel that is periodic sine squared exponential i
 λs, vs, k = kernel_eigs(xs, ϵ, nev, σ, w; kernel)
 println("The returned eigenvalue is λ = $(λs[1])")
 f, f_grid = plot_on_grid(0:0.01:1, 0:0.01:1, k; levels=30,
-                         resolution=(700, 600), xlabel="x", ylabel="y",
+                         size=(700, 600), xlabel="x", ylabel="y",
                          title="Approximately Invariant Eigenfunction")
 f
 
@@ -138,7 +138,7 @@ E_inv = $(E_inv),
 E_K   = $(E_K),
 E_L2  = $(hs'*hs)")
 f, f_grid = plot_on_grid(0:0.01:1, 0:0.01:1, k; levels=30,
-                         resolution=(700, 600), xlabel="x", ylabel="y",
+                         size=(700, 600), xlabel="x", ylabel="y",
                          title="Approximately Invariant BVP")
 f
 

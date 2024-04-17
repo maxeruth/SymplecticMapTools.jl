@@ -47,12 +47,12 @@ f
 
 Ncircle = 100
 
-resolution=(800, 800)
+size=(800, 800)
 fontsize=25
 
 x_init = xs_pp[:, 1, 1:Ncircle];
 
-f = Figure(resolution=(800, 800), fontsize=25);
+f = Figure(size=(800, 800), fontsize=25);
 ax = Axis(f[1,1], xlabel = "x", ylabel = "y", title = "Initial points");
 scatter!(x_init)
 f
@@ -73,7 +73,7 @@ f
 # \end{pmatrix}
 # ```
 
-rtol = 1e-10
+rtol = 1e-12
 Kinit = 50
 Kstride = 50
 Kmax = 400
@@ -93,7 +93,7 @@ end
 #-
 
 markersize=5
-f = Figure(;resolution, fontsize);
+f = Figure(;size, fontsize);
 ax = Axis(f[1,1], xlabel="x", ylabel="y");
 xlims!(0, 1); ylims!(0,1)
 for ii = (1:Ncircle)
@@ -124,7 +124,7 @@ end
 
 # Additionally, for the special case where we need to work with observations from $h : \mathbb{T}\times\mathbb{R} \to \mathbb{R}^2$, we have a plotting routine that can be used to plot the invariant circles in $\mathbb{R}^2$ given an inverse function $h^{-1}$. This is done in the following:
 
-f = Figure(;resolution, fontsize);
+f = Figure(;size, fontsize);
 ax = Axis(f[1,1], xlabel="x", ylabel="y")
 xlims!(0, 1); ylims!(0,1)
 for ii = (1:Ncircle)[rnorms .< rtol]
