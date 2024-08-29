@@ -17,8 +17,8 @@ created using `Literate.jl` out of files found in `docs/`, and can be recreated
 locally by running `docs/literate_examples.jl`. Additionally, these notebooks
 are outputted to markdown and included in the documentation.
 
-[1] M. Ruth and D. Bindel, Level Set Learning for Poincaré Plots of Symplectic Maps, Dec. 2023. arXiv:2312.00967 [physics].\
-[2] In preparation.\
+[1] M. Ruth and D. Bindel, Finding Birkhoff Averages via Adaptive Filtering, Mar. 2024. arXiv:2403.19003 [math.DS].\
+[2]  M. Ruth and D. Bindel, Level Set Learning for Poincaré Plots of Symplectic Maps, Dec. 2023. arXiv:2312.00967 [physics].\
 [3] A. Haro, M. Canadell, J.-L. Figueras, A. Luque, and J. M. Mondelo,
 The Parameterization Method for Invariant Manifolds: From Rigorous Results to
 Effective Computations, vol. 195 of Applied Mathematical Sciences,
