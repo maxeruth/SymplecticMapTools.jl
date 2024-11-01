@@ -529,6 +529,7 @@ function get_circle_coef(hs::AbstractArray, ω0::Number;
     if Nmode == -1
         Nmode = get_Nmode(ω0, N, modetol)
     end
+    # println("Nmode = $(Nmode)")
 
     # λ = exp(2π*im * ω0);
     ωs = zeros(Nmode);
