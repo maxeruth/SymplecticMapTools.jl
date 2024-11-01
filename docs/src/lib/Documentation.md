@@ -113,6 +113,12 @@ get_sum_ave
 get_circle_info
 ```
 
+## Lyapunov Exponents
+```@docs
+lyapunov_exponent
+lyapunov_exponents
+```
+
 ## Example Maps
 ```@docs
 standard_map_F
