@@ -68,7 +68,9 @@ export KernelLabel, get_matrix, kernel_sample_F, window_weight,
 # Examples.jl
 export standard_map_F, standard_map_FJ, polar_map
 # BirkhoffAveraging.jl, ContinuedFractions.jl, MPE.jl
-export vector_mpe_backslash, vector_mpe_iterative, ContFrac, big_cont_frac_eval,
+export vector_mpe_backslash, vector_mpe_iterative, 
+       vector_rre_backslash, vector_rre_iterative,
+       ContFrac, big_cont_frac_eval,
        partial_frac, denoms, big_partial_frac, big_denoms, wba_weight,
        weighted_birkhoff_average, doubling_birkhoff_average,
        birkhoff_extrapolation, adaptive_birkhoff_extrapolation, sum_stats,

@@ -14,11 +14,11 @@
 # ```
 # When this average is performed on a smooth integrable trajectory, the error is $\mathcal{O}(T^{-M})$ for all $M$. Otherwise, in chaos, the error goes as $\mathcal{O}(T^{-1/2})$.
 #
-# In this document, we show how trajectories of the standard map can be classified via the convergence of a period-doubling adaptive version of this algorithm. Following Sander and Meiss, we consider the finite weighted Birkhoff average as 
+# In this document, we show how trajectories of the standard map can be classified via the convergence of a period-doubling adaptive version of this algorithm. Following Sander and Meiss, we consider the finite weighted Birkhoff average as
 # ```math
 # WB_T[h](x_0) =  \sum_{t = 0}^{T-1} w_{t,T} (h \circ F^t)(x_0).
 # ```
-# Then, we consider the algorithm to be converged if $| WB_{2T} - WB_T | < \epsilon$ for some tolerance $\epsilon$. This can be performed in $\mathcal{O}(T \log T)$ time by taking the Birkhoff average after every doubling of $T$. 
+# Then, we consider the algorithm to be converged if $| WB_{2T} - WB_T | < \epsilon$ for some tolerance $\epsilon$. This can be performed in $\mathcal{O}(T \log T)$ time by taking the Birkhoff average after every doubling of $T$.
 #
 # We will work with he standard map $F : (x_t, y_t) \mapsto (x_{t+1}, y_{t+1})$, given by
 # ```math
@@ -29,14 +29,13 @@
 # ```
 # We will average over the quantity $h(x,y) = y$. The average of this quantity gives the rotational transform of the invariant circle (NOTE: here we distinguish between rotational transform and rotation number, where rotational transform is defined as the twist around the torus and rotation number would be defined off of a ).
 #
-# First, we show an example of calling the finite weighted Birkhoff average. By changing $T$, one can adjust the accuracy of the average. By changing $x_0$, one can choose between chaos and not chaos. 
+# First, we show an example of calling the finite weighted Birkhoff average. By changing $T$, one can adjust the accuracy of the average. By changing $x_0$, one can choose between chaos and not chaos.
 
-using Revise
 using SymplecticMapTools
 using CairoMakie
 using Sobol
 
-#- 
+#-
 
 k_sm = 0.7;
 F = standard_map_F(k_sm);
@@ -66,7 +65,7 @@ plot!(xs[1,:], xs[2,:], color=:red, markersize=20)
 
 f
 
-# We see that the rotation number for the trajectory above is close to $0.5$. This makes sense, because the island chain has two circles. 
+# We see that the rotation number for the trajectory above is close to $0.5$. This makes sense, because the island chain has two circles.
 #
 # In order to show that the convergence is dependent on the initial orbit, we reproduce a figure from Sander and Meiss. Given a set of initial points on the standard map, we will plot $WB_T$ vs $T$, showing the separation.
 
@@ -75,7 +74,7 @@ function get_averages(F, h, x0, Ts)
     NT = length(Ts); Tmax = maximum(Ts)
     aves = zeros(NT); xs = zeros(2, Tmax); hs = zeros(Tmax)
     xs[:,1] = x0; hs[1] = h(x0)
-    
+
     jj = 1
     for t = 2:Tmax
         xs[:, t] = F(xs[:, t-1]); hs[t] = h(xs[:,t])
@@ -101,8 +100,8 @@ Ts = vcat(Ts, Tmax*2) # This is the "true" value
 Ny = 50; ys = LinRange(0, 0.5, Ny);
 
 ## Create figure
-f = CairoMakie.Figure(resolution=(800,400)); 
-ax1 = CairoMakie.Axis(f[1,1],  yscale=log10, xlabel="T", ylabel="error"); 
+f = CairoMakie.Figure(size=(800,400));
+ax1 = CairoMakie.Axis(f[1,1],  yscale=log10, xlabel="T", ylabel="error");
 ax2 = CairoMakie.Axis(f[1,2], xlabel="x", ylabel="y");
 
 ## Loop over trajectories
@@ -129,11 +128,11 @@ N_init = 250;
 T_init = 250; T_max = (2^7)*T_init
 println("T_max = $(T_max)")
 
-f = Figure(resolution=(800,800))
+f = Figure(size=(800,800))
 ax = Axis(f[1,1], xlabel="x", ylabel="y");
 for ii = 1:N_init
     ave, xs, hs, conv_flag = doubling_birkhoff_average(h, F, next!(s); T_init, T_max)
-    
+
     color = conv_flag ? :blue      : :black
     label = conv_flag ? "\"Nice\"" : "Chaos"
     CairoMakie.scatter!(ax, xs[1, :], xs[2, :]; color, markersize=2, label);

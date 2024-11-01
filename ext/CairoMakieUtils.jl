@@ -92,7 +92,7 @@ Create a filled contour plot of the kernel label `k` on the `x` × `y` grid.
 kwargs:
 - `balance=true`: If true, makes the maximum value of the color scale equal to
   the minimum
-- `resolution`, `fontsize`: See `CairoMakie.Figure`
+- `size`, `fontsize`: See `CairoMakie.Figure`
 - `xlabel`, `ylabel`, `title`: See `CairoMakie.Axis`
 - `levels`, `linewidth`: See `CairoMakie.contour!`
 - `clabel`: See `CairoMakie.Colorbar`
@@ -103,7 +103,7 @@ Output:
 """
 function plot_on_grid(x::AbstractVector, y::AbstractVector, k::KernelLabel;
                       xlabel="", ylabel="", title="", levels=5, linewidth=2,
-                      resolution = (800, 800), clabel="", fontsize=25,
+                      size = (800, 800), clabel="", fontsize=25,
                       balance=true)
    Nx = length(x);
    Ny = length(y);
@@ -122,7 +122,7 @@ function plot_on_grid(x::AbstractVector, y::AbstractVector, k::KernelLabel;
       colorrange = (minimum(f_grid), maximum(f_grid));
    end
 
-   f = CairoMakie.Figure(resolution = resolution, fontsize=fontsize);
+   f = CairoMakie.Figure(size = size, fontsize=fontsize);
    ax = CairoMakie.Axis(f[1,1], xlabel=xlabel, ylabel=ylabel, title=title)
 
    colormap = colorschemes[:diverging_linear_bjr_30_55_c53_n256]
@@ -140,7 +140,7 @@ end
 
 """
     poincare_plot(xb::AbstractVector, yb::AbstractVector, F::Function,
-                  Ninit::Integer, Niter::Integer; resolution=(800, 800),
+                  Ninit::Integer, Niter::Integer; size=(800, 800),
                   fontsize=25, xlabel="x", ylabel="y", xlims = nothing,
                   ylims=nothing, markersize=3, title="Poincare Plot")
 
@@ -153,12 +153,12 @@ Output:
 """
 function poincare_plot(xb::AbstractVector, yb::AbstractVector,
                        F::Function, Ninit::Integer, Niter::Integer;
-                       resolution=(800, 800), fontsize=25, xlabel="x",
+                       size=(800, 800), fontsize=25, xlabel="x",
                        ylabel="y", xlims = nothing, ylims=nothing, markersize=3,
                        title="Poincare Plot")
    s = SobolSeq([xb[1], yb[1]], [xb[2], yb[2]])
 
-   f = CairoMakie.Figure(;resolution, fontsize)
+   f = CairoMakie.Figure(;size, fontsize)
    ax = CairoMakie.Axis(f[1,1]; xlabel, ylabel, title)
    if xlims == nothing; CairoMakie.xlims!(xb...); else; CairoMakie.xlims!(xlims...); end
    if ylims == nothing; CairoMakie.ylims!(yb...); else; CairoMakie.ylims!(ylims...); end

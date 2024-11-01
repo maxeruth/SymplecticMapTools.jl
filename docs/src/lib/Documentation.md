@@ -100,6 +100,7 @@ big_denoms
 
 ## Birkhoff Extrapolation
 ```@docs
+vector_rre_backslash
 vector_mpe_backslash
 vector_mpe_iterative
 wba_weight

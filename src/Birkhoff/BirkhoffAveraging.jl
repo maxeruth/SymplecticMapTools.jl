@@ -239,7 +239,6 @@ function adaptive_birkhoff_extrapolation(h::Function, F::Function,
     d = length(h(x0));
     K = Kinit-Kstride
     N = ceil(Int, 2*Nfactor*K / d);
-    # println("K=$K, N=$N")
 
     c, sums, resid, xs, hs, history = 0,0,Inf,nothing,nothing,0;
     rnorm = Inf;
@@ -362,9 +361,8 @@ function find_rationals(ωs::AbstractVector, λs::AbstractVector, dmax::Integer,
     ind = falses(length(ωs))
     for (ii, ω) in enumerate(ωs)
         n, d = SmallDenom(ω, tol)
-        # println("ii=$ii, ω=$ω, =$ω≈$(n//d)")
         if d ≤ dmax
-            Nisland = lcm(d, Nisland);
+            Nisland = max(d, Nisland);
             ind[ii] = true;
         end
     end
@@ -383,6 +381,14 @@ Output:
 function chebyshev_companion_matrix(v::AbstractVector)
     K = length(v)-1
     C = zeros(K, K)
+
+    if K == 0
+        return C
+    elseif K == 1
+        C[1,1] = -v[1]/v[end]
+        return C
+    end
+
     C[1,2] = 1.
     C[2,1] = 0.5;
     for ii = 2:K-1
@@ -424,10 +430,14 @@ Input:
 Output:
 - `v`: The roots of the polynomial `q` satisfying `q((z+inv(z))/2) = p(z)`
 """
-function palindromic_cheb_roots(c::AbstractVector)
+function palindromic_cheb_roots(c::AbstractVector{T}) where T
     v = palindromic_to_chebyshev(c)
+    N = length(v)
+    nnz = findlast((x) -> (x != zero(T)), v)
+    v = v[1:nnz]
+
     C = chebyshev_companion_matrix(v)
-    eigvals(C)
+    vcat(eigvals(C), Inf.*ones(N - nnz))
 end
 
 
@@ -445,20 +455,30 @@ function cheb_roots_to_roots(μs::AbstractVector)
     K = length(μs)
     λs = zeros(Complex{Float64}, 2K)
     for ii = 1:K
-        λs[2ii-1:2ii] = roots(Polynomial([0.5, -μs[ii], 0.5]))
+        μi = μs[ii]
+        if μi == Inf
+            λs[2ii-1:2ii] = [0.0, Inf]
+        else
+            λs[2ii-1:2ii] = roots(Polynomial([0.5, -μs[ii], 0.5]))
+        end
     end
 
     λs
 end
 
 function eigenvalues_and_project(hs, c; growth_tol=1e-5)
+    d, N = size(hs);
     sum_ave =  get_sum_ave(hs, c)
     λs = cheb_roots_to_roots(palindromic_cheb_roots(c));
+
+    if (length(c) == 1) | (λs[1] == zero(typeof(λs[1]))) # Edge case: constant polynomial
+        return [0.], [0.], sum_ave, zeros(1,2)
+    end
+
     λs = λs[abs.(abs.(λs) .- 1) .< growth_tol]
     if length(λs) == 0
         @warn "No eigenvalues were found on the unit circle. This means rattol was probably too large"
     end
-    d, N = size(hs);
     K = length(λs);
 
     # eigenvectors
@@ -484,13 +504,32 @@ function eigenvalues_and_project(hs, c; growth_tol=1e-5)
     return λs, ωs, sum_ave, coefs
 end
 
-function get_circle_coef(hs::AbstractArray, ω0::Number, maxNmode::Integer)
+
+function get_Nmode(ω0::Number, N::Number, modetol::Number)
+    W = wba_weight(1,N);
+    w = diag(W*W);
+
+    V = [exp(im*m*n*ω0) for m in 1:N, n in 1:N];
+    tmp = abs.(V*w)
+    vals = cumsum(tmp);
+
+    Nmode = findfirst((x)->(x>modetol), vals)
+    Nmode = (2*(Nmode÷2) == Nmode) ? Nmode-1 : Nmode
+    Nmodemax = (2*(N÷2) == N) ? N-1 : N
+
+    return min(Nmode, Nmodemax)
+end
+
+
+function get_circle_coef(hs::AbstractArray, ω0::Number;
+                         modetol::Number = 0.5, Nmode::Integer=-1)
     den = denoms(ContFrac(ω0/2π));
     d, N = size(hs);
 
-    Nmode = minimum([floor(Int, N/4), maximum(den), maxNmode])
-    Nmode = mod(Nmode, 2) == 0 ? Nmode - 1 : Nmode
-    N = min(N, 6*Nmode)
+    if Nmode == -1
+        Nmode = get_Nmode(ω0, N, modetol)
+    end
+    # println("Nmode = $(Nmode)")
 
     # λ = exp(2π*im * ω0);
     ωs = zeros(Nmode);
@@ -502,7 +541,7 @@ function get_circle_coef(hs::AbstractArray, ω0::Number, maxNmode::Integer)
 
     w = wba_weight(1, N)
     # w = ones(N)
-    w = w / sqrt(sum(w.^2))
+    # w = w / sqrt(sum(w.^2))
 
     vs = Diagonal(w)*[exp(m*im*ωi) for m=0:N-1, ωi = ωs]
     rhs = Diagonal(w)*hs[:,1:N]'
@@ -510,6 +549,26 @@ function get_circle_coef(hs::AbstractArray, ω0::Number, maxNmode::Integer)
     return vs \ rhs
 end
 
+
+function coefs_to_circle(sum_ave::AbstractArray, circle_coef::AbstractArray,
+                         ω0::Number, Nisland::Integer)
+    z = FourierCircle(size(circle_coef,1)÷2; τ=ω0, p=Nisland)
+
+    for kk = 1:Nisland
+        ind_kk = 2kk-1:2kk
+        set_a0!(z, sum_ave[ind_kk]; i_circle=kk)
+
+        for jj = 1:get_Na(z)
+            # jj = p2[ii]
+            Am = zeros(2,2);
+            Am[:, 1] = 2 .* real.(circle_coef[2jj, ind_kk])
+            Am[:, 2] = -2 .* imag.(circle_coef[2jj, ind_kk])
+            set_Am!(z, jj, Am; i_circle=kk)
+        end
+    end
+
+    z
+end
 
 """
     get_circle_info(hs::AbstractArray, c::AbstractArray; rattol::Number=1e-8,
@@ -525,7 +584,10 @@ Optional Arguments:
 - `ratcutoff`: Relative prominence needed by a linear mode to qualify as
   "important" for deciding whether the sequence is an island
 - `max_island_d`: Maximum denominator considered for islands.
-- `maxNmode`: Maximum number of considered for the integration
+- `modetol`: Tolerance (typically less than 1) used for determining the number
+  of Fourier modes. Higher numbers result in more Fourier modes at the expense
+  of robustness of the least-squares system.  Decrease it (e.g. to 0.5) for
+  noisy data
 
 Output:
 - `z`: An invariant circle of type `FourierCircle`
@@ -533,7 +595,7 @@ Output:
 function get_circle_info(hs::AbstractArray, c::AbstractArray;
                          rattol::Number=1e-8, ratcutoff::Number=1e-2,
                          max_island_d::Integer=30, ϵ::Number=0.0,
-                         maxNmode::Integer=100)
+                         modetol::Number=0.5)
     λs, ωs, sum_ave, coefs = eigenvalues_and_project(hs, c)
 
     if max_island_d == 0
@@ -553,7 +615,7 @@ function get_circle_info(hs::AbstractArray, c::AbstractArray;
     circle_coef = [];
     if Nisland == 1
         # Find coefficients of circles
-        circle_coef = get_circle_coef(hs, ω0, maxNmode)
+        circle_coef = get_circle_coef(hs, ω0; modetol)
     else
         # If there are islands, rerun extrapolation to find reduced filter
         d, N = size(hs);
@@ -564,27 +626,10 @@ function get_circle_info(hs::AbstractArray, c::AbstractArray;
         c_island, ~, resid = vector_rre_backslash(hs_island, Kisland; ϵ);
 
         λs, ωs, sum_ave, coefs = eigenvalues_and_project(hs_island, c_island)
-
         # Then, find coefficients of each island
         ω0 = ωs[1]*2π
-        circle_coef = get_circle_coef(hs_island, ω0, maxNmode)
+        circle_coef = get_circle_coef(hs_island, ω0; modetol)
     end
 
-
-    z = FourierCircle(size(circle_coef,1)÷2; τ=ω0, p=Nisland)
-
-    for kk = 1:Nisland
-        ind_kk = 2kk-1:2kk
-        set_a0!(z, sum_ave[ind_kk]; i_circle=kk)
-
-        for jj = 1:get_Na(z)
-            # jj = p2[ii]
-            Am = zeros(2,2);
-            Am[:, 1] = 2 .* real.(circle_coef[2jj, ind_kk])
-            Am[:, 2] = -2 .* imag.(circle_coef[2jj, ind_kk])
-            set_Am!(z, jj, Am; i_circle=kk)
-        end
-    end
-
-    return z
+    return coefs_to_circle(sum_ave, circle_coef, ω0, Nisland)
 end
