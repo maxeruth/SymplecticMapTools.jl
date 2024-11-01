@@ -4,7 +4,7 @@
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://maxeruth.github.io/SymplecticMapTools.jl/stable/)
 
 # SymplecticMapTools.jl
-This is a package devoted to different tools for analyzing (primarily 2D)
+SymplecticMapTools is a package devoted to different tools for analyzing (primarily 2D)
 symplectic maps. The overall goal of this package is to provide a set of tools
 that can be used to robustly characterize orbits and find invariant structures
 while being efficient in the number of evaluations of the map. If you have any
@@ -31,8 +31,8 @@ Effective Computations, vol. 195 of Applied Mathematical Sciences,
 Springer International Publishing, Cham, 2016.
 
 ## Installation
-For installation, add the package using the command
-`]add path/to/SymplecticMapTools.jl` in the Julia REPL.
+For installation, add the package from the general repository using the command
+`]add SymplecticMapTools.jl` in the Julia REPL. 
 This package uses Requires for plotting.
 You must load CairoMakie or Plots separately to use the plotting functionality.
 
