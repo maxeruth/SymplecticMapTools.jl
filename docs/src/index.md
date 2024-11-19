@@ -17,8 +17,9 @@ created using `Literate.jl` out of files found in `docs/`, and can be recreated
 locally by running `docs/literate_examples.jl`. Additionally, these notebooks
 are outputted to markdown and included in the documentation.
 
-[1] M. Ruth and D. Bindel, Finding Birkhoff Averages via Adaptive Filtering, Mar. 2024. arXiv:2403.19003 [math.DS].\
-[2]  M. Ruth and D. Bindel, Level Set Learning for Poincaré Plots of Symplectic Maps, Dec. 2023. arXiv:2312.00967 [physics].\
+[1] [M. Ruth and D. Bindel, Finding Birkhoff Averages via Adaptive Filtering, Mar. 2024. arXiv:2403.19003 \[math.DS\].](
+https://doi.org/10.48550/arXiv.2403.19003)\
+[2]  [M. Ruth and D. Bindel, Level Set Learning for Poincaré Plots of Symplectic Maps, Dec. 2023. arXiv:2312.00967 \[physics\].](https://arxiv.org/abs/2312.00967)\
 [3] A. Haro, M. Canadell, J.-L. Figueras, A. Luque, and J. M. Mondelo,
 The Parameterization Method for Invariant Manifolds: From Rigorous Results to
 Effective Computations, vol. 195 of Applied Mathematical Sciences,
@@ -29,12 +30,6 @@ For installation, add the package using the command
 `]add SymplecticMapTools` in the Julia REPL.
 This package uses Requires for plotting.
 You must load CairoMakie or Plots separately to use the plotting functionality.
-
-## Development
-This is a new package, and things are changing rapidly! Currently, features
-involving the InvariantCircle struct, the extrapolation algorithm, and
-periodic orbits (1, 3, and 4 above) are mostly tested, with the features related
-to (3) still in need of testing. More examples are being added as well.
 
 ## Examples
 ```@contents
@@ -54,4 +49,4 @@ Pages = [
 ```
 
 ## Contact
-For any questions, email [mer335@cornell.edu](mailto:mer335@cornell.edu)
+For any questions, email [maximilian.ruth@austin.utexas.edu](mailto:maximilian.ruth@austin.utexas.edu).
