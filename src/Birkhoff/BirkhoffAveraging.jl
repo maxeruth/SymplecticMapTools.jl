@@ -2,6 +2,11 @@ include("./ExtrapolationOperators.jl")
 include("./MPE.jl")
 include("./ContinuedFractions.jl")
 
+# The distance between two numbers on the torus
+function mid_mod(theta::Number)
+    mod(theta+0.5, 1.) - 0.5
+end
+
 """
     wba_weight(d, N)
 
@@ -149,7 +154,7 @@ function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
 
     Nx = N+2K+1
     hs = zeros(d, Nx);
-    xs = zeros(2, Nx);
+    xs = zeros(d, Nx);
 
     hs[:, 1] = h0;
     xs[:, 1] = x;
@@ -204,8 +209,7 @@ Adaptively applies `birkhoff_extrapolation` to find a good enough filter length
 `K`, where "good enough" is defined by the `rtol` optional argument.
 
 Arguments:
-- `h`: The observable function (can choose the identity as a default
-  `h = (x)->x`)
+- `h`: The observable function (often the identity function `h = (x)->x` works)
 - `F`: The symplectic map
 - `x0`: The initial point of the trajectory
 - `rtol`: Required tolerance for convergence (inexact maps often require a
@@ -275,7 +279,7 @@ function sum_stats(sums)
     return sum_ave, sum_std
 end
 
-# This is a convolution. It could probably be done with FFTs if I really cared
+# This is a convolution. It could probably be done with FFTs
 """
     get_sum_ave(hs, c)
 
@@ -356,7 +360,7 @@ function SmallDenom(x, δ)
     return (n, d);
 end
 
-function find_rationals(ωs::AbstractVector, λs::AbstractVector, dmax::Integer, tol::Number)
+function find_rationals(ωs::AbstractVector, dmax::Integer, tol::Number)
     Nisland = 1;
     ind = falses(length(ωs))
     for (ii, ω) in enumerate(ωs)
@@ -505,6 +509,672 @@ function eigenvalues_and_project(hs, c; growth_tol=1e-5)
 end
 
 
+function get_w_grid(w0::AbstractVector, Ngrids::AbstractVector)
+    d = length(w0) 
+
+    if d < 1
+        return [0.]
+    elseif d == 1
+        Ngrid = Ngrids[1]
+        grid = [mid_mod(n*w0[1]) for n in -Ngrid:Ngrid]
+        ind = sortperm(grid)
+
+        return grid[ind]
+    else
+        grid_ld = get_w_grid(w0[1:d-1], Ngrids[1:d-1])
+        grid_d  = get_w_grid(w0[d:d], Ngrids[d:d])
+
+        grid = [mid_mod(x+y) for x in grid_ld, y in grid_d][:]
+        ind = sortperm(grid)
+        return grid[ind]
+    end
+end
+
+
+function get_wk2_grid(w0::AbstractVector, Ngrids::AbstractVector)
+    d = length(w0) 
+
+    if d < 1
+        return [0.], [1]
+    elseif d == 1
+        Ngrid = Ngrids[1]
+        grid = [mid_mod(n*w0[1]) for n in -Ngrid:Ngrid]; # mod.((-Ngrid:Ngrid).*w0[1] .+ 0.5, 1) .- 0.5
+        ind = sortperm(grid)
+        k2grid = zeros(Integer, 2Ngrid+1)
+        k2grid[:] = (-Ngrid:Ngrid)[ind]
+        return grid[ind], kgrid
+    else
+        grid_ld, k2grid_ld = get_wk_grid(w0[1:d-1], Ngrids[1:d-1])
+        grid_d , k2grid_d  = get_wk_grid(w0[d:d], Ngrids[d:d])
+
+        grid = [mid_mod(x + y) for x in grid_ld, y in grid_d][:]
+        k2grid = vec([k1^2 + k2^2 for k1 in k2grid_ld, k2 in k2grid_d])
+
+        ind = sortperm(grid)
+        return grid[ind], k2grid[ind]
+    end
+end
+
+
+function get_wk_grid(w0::AbstractVector, Ngrids::AbstractVector)
+    d = length(w0) 
+
+    if d < 1
+        return [0.], [1]
+    elseif d == 1
+        Ngrid = Ngrids[1]
+        grid = [mid_mod(n*w0[1]) for n in -Ngrid:Ngrid]; #mod.((-Ngrid:Ngrid).*w0[1] .+ 0.5, 1) .- 0.5
+        ind = sortperm(grid)
+        kgrid = zeros(Integer, 1,2Ngrid+1)
+        kgrid[:] = (-Ngrid:Ngrid)[ind]
+        return grid[ind], kgrid
+    else
+        grid_ld, kgrid_ld = get_wk_grid(w0[1:d-1], Ngrids[1:d-1])
+        grid_d , kgrid_d  = get_wk_grid(w0[d:d], Ngrids[d:d])
+
+        grid = [mid_mod(x + y) for x in grid_ld, y in grid_d][:]
+        
+        Nk_ld = size(kgrid_ld,2)
+        Nk_d = size(kgrid_d,2)
+        kgrid = zeros(Integer, d, Nk_ld, Nk_d)
+
+        @views for ii = 1:Nk_ld, jj = 1:Nk_d
+            kgrid[1:d-1,ii,jj] = kgrid_ld[:,ii]
+            kgrid[d,ii,jj] = kgrid_d[jj]
+        end
+        kgrid = reshape(kgrid,d,Nk_ld*Nk_d)
+        # display(Ns)
+        
+        # ind = sum(abs.(kgrid),dims=1) .< maximum(Ngrids)
+        # ind = reshape(ind,length(ind))
+        # grid = grid[ind]
+        # kgrid = kgrid[:,ind]
+
+        ind = sortperm(grid)
+        return grid[ind], kgrid[:,ind]
+    end
+end
+
+function search_sorted_freqs(wgrid::AbstractVector, w::Number)
+    N = length(wgrid)
+    ind = searchsortedfirst(wgrid,w)
+
+    k = 0
+    if (ind == 1) || (ind == N+1)
+        k = (abs(-abs(w)-wgrid[1]) > abs(abs(w)-wgrid[N])) ? N : 1
+    elseif ind ≤ N
+        k = (abs(w-wgrid[ind]) > abs(w-wgrid[ind-1])) ? ind-1 : ind
+    end
+    
+    k
+end
+
+function match_ws(w0::AbstractVector, ws::AbstractVector, tol::Number, Ngrids::AbstractVector)
+
+    wgrid = get_w_grid(w0, Ngrids)
+    nearest = [search_sorted_freqs(wgrid, w) for w in ws]
+    matches = [abs(mid_mod(ws[ii] - wgrid[nearest[ii]]))<tol for ii = 1:length(ws)]
+    Nmatches = sum(matches)
+    
+    return matches, Nmatches
+end
+
+# Recursively finds a value for w0
+# Returns the first frequency which exactly matches the vector `ws`
+function initial_w0(w0::AbstractVector, ws::AbstractVector, Nw0::Integer, tol::Number, Ngrids::AbstractVector)
+    w0_best = []
+    matches_best = []
+    Nmatches_best = 0  # Number of matches
+    matches, Nmatches = match_ws(w0, ws, tol, Ngrids)
+
+    # println("initial_w0: w0 = $(w0)")
+
+    if length(w0) == Nw0
+        # If w0 is fully specified, return it and how well it did
+        return w0, matches, Nmatches
+    elseif length(w0) == 0
+        # If none of w0 is specified yet, check if there is a rational frequency
+    end
+
+    # If w0 is partially specified, guess the next frequency in the vector
+    for w in ws[.!matches]
+        w0_candidate = vcat(w0, w)
+        w0_candidate, matches, Nmatches = initial_w0(w0_candidate, ws, Nw0, tol, Ngrids)
+        
+        # If this candidate frequency specifies every other, use it
+        if Nmatches == length(ws)
+            return w0_candidate, matches, Nmatches
+        end
+
+        # Otherwise, if it matches more frequencies than the previous best, use it
+        if Nmatches > Nmatches_best
+            w0_best = w0_candidate
+            matches_best = matches
+            Nmatches_best = Nmatches
+        end
+    end
+
+    return w0_best, matches_best, Nmatches_best
+end
+
+function var_h_normalization(r_h::Number, Ngrids::AbstractVector, Nw0::Number)
+    w0 = randn(length(Ngrids)) # whatever
+    _, k2grid = get_wk2_grid(w0, Ngrids::AbstractVector)
+    magkgrid = sqrt.(k2grid)
+
+    vars_h = exp.(-(2r_h) .* magkgrid)
+    
+    sum(vars_h)*Nw0
+end
+
+function wind_increment(wind, Nw, k)
+    # println("entering wind_increment, wind=$wind, Nw=$Nw, k=$k")
+    # println("(k==1) || (wind[k] < Nw) = $((k==1) || (wind[k] < Nw))")
+    if (k==1) || (wind[k] < Nw)
+        wind[k] = wind[k] + 1
+        # println("exiting wind_increment, wind=$wind, Nw=$Nw, k=$k")
+        return wind[k]
+    else
+        wind[k] = wind_increment(wind, Nw-1, k-1) + 1
+    end
+end
+
+function chi2_pdf(x::Number, sigma::Number, k::Number)
+    den = 2^(k/2) * gamma(k/2);
+    x^(k/2-1)*exp(-x/2)/den
+end
+
+function chi2_cdf(x::Number, sigma::Number, k::Number)
+
+end
+
+function w0_likelihood(w0::AbstractVector, w::Number, h2norm::Number, magk::Number, 
+                       sigma_w::Number, r_h::Number, N_h::Number, h2min::Number)
+    
+    # Probability of observing the frequency
+    wdist = Normal()
+    Pw = logpdf(mid_mod(w0-w)/sigma_w)
+
+    # Probability of observing the coefficient
+    D = length(h)
+    magh = norm(h)
+    sigma_h = exp(-r_h*magk)/N_h
+    Ph = -(d/2)*log(2π*sigma_h^2)
+
+    # Probability of the coefficient being larger than or equal to the minimum coefficient
+    hdist = Chisq(length(w0))
+end
+
+function w0_likelihood(w0::AbstractVector, ws::AbstractVector, h2norms::AbstractVector, sigma_w::Number, 
+                       r_h::Number, N_h::Number, Ngrids::AbstractVector,searchwidth::Number)
+    wgrid, k2grid = get_wk2_grid(w0, Ngrids)
+    loglikelihood = 0.
+
+    Nw = length(ws)
+    h2min = minimum(h2norms)
+    
+    for w in ws
+        jj_closest = search_sorted_freqs(wgrid, w) 
+        jjs = mod1.(-width+jj_closest:width+jj_closest, Nw)
+        
+        loglikelihoods = [w0_likelihood(w0, wgrid[jj], h2norms[jj], sqrt(k2grid[jj]), sigma_w, r_h, 
+                                        N_h, h2min) for jj in jjs]
+        kmax = argmax(loglikelihoods)
+        loglikelihood = loglikelihood + popat!(loglikelihoods, kmax)
+
+    end
+end
+
+# Recursively finds a value for w0
+# Returns the first frequency which exactly matches the vector `ws`
+function initial_w0(ws::AbstractVector, hs::AbstractVector, Nw0::Integer, sigma_w::Number, 
+                    r_h::Number, Ngrids::AbstractVector; searchwidth = 5)
+    Nw = length(ws)
+    wind = [ii for ii in 1:Nw0]
+    w0_best = zeros(Nw0)
+    loglikelihood_best = -Inf
+    finished = false
+    
+    N_h = var_h_normalization(r_h, Ngrids, Nw0)
+    h2norms = [h'*h for h in eachcol(hs)]
+    # If w0 is partially specified, guess the next frequency in the vector
+    while !finished
+        w0_candidate = ws[wind]
+        loglikelihood = w0_likelihood(w0_candidate, ws, h2norms, sigma_w, r_h, N_h, Ngrids,searchwidth)
+        
+        # If this is more likely, use it
+        if loglikelihood > loglikelihood_best
+            w0_best = w0_candidate
+            loglikelihood_best=loglikelihood
+        end
+
+        if wind == vec(Nw-Nw0+1:Nw)
+            finished=true
+        end
+        wind_increment(wind, Nw, Nw0)
+    end
+
+    return w0_best# , matches_best, Nmatches_best
+end
+
+function refine_w0(w0::AbstractVector, ws::AbstractVector, coefs::AbstractArray, tol::Number, 
+                   gridratio::Number)
+    # Get wavenumber information
+    Ngrids = floor(Integer,gridratio*sqrt(length(ws)/2)) * ones(Integer,length(w0))
+    wgrid, kgrid = get_wk_grid(w0, Ngrids)
+    nearest = [search_sorted_freqs(wgrid, w) for w in ws]
+    matches = [abs(mid_mod(ws[ii]-wgrid[nearest[ii]]))<tol for ii = 1:length(ws)]
+    
+    coefs = coefs[matches]
+    ks = kgrid[:, nearest[matches]]
+
+    # Get loop minimizing basis
+    hk = ks * Diagonal(coefs)
+    H = real.(hk*hk')
+    U = Matrix(cholesky(H).U)
+    _, A = LLLplus.hkz(U)
+    
+    new_w0 = A\w0
+    D = Diagonal(Integer.(sign.(new_w0)));
+    
+    display(H)
+    display(A'*H*A)
+
+    D*new_w0 # , D*A'*ks
+end
+
+
+"""
+    get_w0(hs::AbstractArray, c::AbstractVector, dim::Number; tol::Number=1e-9, 
+                Nsearch::Integer=20, gridratio::Number=0., Nkz::Integer=50)
+
+Find the rotation vector from an output of Birkhoff RRE.
+
+Input: 
+- `hs`: The observable output from [`adaptive_birkhoff_extrapolation`](@ref)
+- `c`: The filter output from [`adaptive_birkhoff_extrapolation`](@ref)
+- `dim`: The dimension of the invariant torus
+- `tol=1e-8`: The tolerance at which we determine a frequency is an integer multiple of another 
+   frequency. Can be increased/decreased depending on how well resolved `c` is. For instance, if 
+   the torus is very complicated or the map is noisy, a larger tolerance may be needed (say 1e-5).
+- `(Nsearch,gridratio)=(20,0.)`: `Nsearch` is the number of independent roots of `c` (i.e. ±ω are the 
+   same root) that we consider for choosing ω0. `gridratio` is gives the size of grid we use for the
+   discrete optimization to find ω0. If the torus is dominated by higher harmonics, then one or both
+   of these parameters may need to be increased. The default values (chosen by `gridratio==0.`)
+   are `2.` for the 1D case and `1.` for greater than 1D.
+- `Nkz=100`: Number of frequencies to use for finding the KZ basis. This value likely does not need
+  to be tuned by the user.
+
+Output:
+- `w0`: The rotation vector. In the case of an invariant torus, is is of length `dim`. In the case 
+  of an island, it is of length `dim+1`, where the first entry is rational and the rotation vector 
+  is in elements `w0[2:dim+1]`.
+- `matchedratio`: The number of frequencies that were matched to tolerance `tol` over the total 
+  number of considered frequencies (`Nsearch`). If it is `1.`, then all frequencies were matched.
+  Otherwise, the number will be below `1.`. `matchedratio==1.` does not necessarily imply that the 
+  rotation vector is correct. Errors could still include: `tol` is too large, `Nsearch` is too small 
+  to see a basis of w0, `dim` is too large. However, this can be used as to check the reliability of 
+  this individual step, while a final check of the torus parameterization is the final necessary 
+  component of the algorithm.
+- `ws`: The full set of frequencies associated with the roots of `c`. Both `ws` and `coefs` (below)
+  are used as inputs to the function [`get_torus`](@ref).
+- `coefs`: The inner product of the frequencies `ws` against the signal `hs`
+"""
+function get_w0(hs::AbstractArray, c::AbstractVector, dim::Number; tol::Number=1e-9, 
+                Nsearch::Integer=20, gridratio::Number=0., Nkz::Integer=50)
+    # Get correct default grid ratio
+    if gridratio==0.
+        gridratio = (dim == 1) ? 2. : 10.
+    end
+
+    # Step 0: Normalize the input
+    NW = size(hs,2)
+    W = wba_weight(1,NW)
+    hnorm = sqrt(sum((hs.*hs*(W*W))[:]))
+    hs = hs ./ hnorm;
+    display("norm of hs = $(norm(hs)), NW = $(NW)")
+    
+    # Step 1: Get the roots sorted by the value of coefs
+    _, ws, _, coefs = eigenvalues_and_project(hs, c)
+
+    # Step 2: Get a candidate value of w0
+    Ngrids = floor(Integer, sqrt(Nsearch)*gridratio) .* ones(Integer, dim)
+    w0, matches, Nmatches = initial_w0(Number[], ws[1:2:2Nsearch], dim, tol, Ngrids)
+    println(matches)
+
+    # Step 3: Find the optimal rotation vector by KZ basis
+    coef_norms = [norm(row) for row in eachrow(coefs[1:2Nkz,:])]
+    w0 = refine_w0(w0, ws[1:2Nkz], coef_norms, tol, gridratio)
+
+    return w0, Nmatches/Nsearch, ws, coefs
+end
+
+
+mutable struct AdaptiveQR{T}
+    N::Integer;
+    M::Integer;
+    Q::AbstractMatrix{T};
+    R::AbstractMatrix{T};
+
+    function AdaptiveQR(T::Type, N::Number)
+        new{T}(N,0,zeros(T,N,1),zeros(T,1,1))
+    end
+end
+
+function get_Q(QR::AdaptiveQR)
+    @views QR.Q[:,1:QR.M]
+end
+
+function get_R(QR::AdaptiveQR)
+    @views UpperTriangular(QR.R[1:QR.M,1:QR.M])
+end
+
+function double!(QR::AdaptiveQR{T}) where T
+    Q = get_Q(QR)
+    R = get_R(QR)
+    M = QR.M
+    N = QR.N
+
+    buf = size(QR.Q,2)
+
+    QR.Q = Matrix{T}(undef,N,2buf)
+    QR.Q[:,1:M] = Q
+
+    QR.R = zeros(T,2buf,2buf)
+    QR.R[1:M,1:M] = R;
+end
+
+function update!(QR::AdaptiveQR, A::AbstractArray)
+    M = QR.M
+    N = QR.N
+    M2 = size(A,2)
+    @assert size(A,1) == N
+
+    while QR.M+M2 > size(QR.R,2)
+        double!(QR)
+    end
+
+    ind1 = 1:M
+    ind2 = M+1:M+M2
+    Q = get_Q(QR)
+    # println("Asz = $(size(get_Q(QR),2)*size(A,2))")
+    QR.R[ind1, ind2] = Q'*A;
+    A = A - Q * QR.R[ind1, ind2] # we project too often
+    
+    Q2, R2 = qr(A)
+    QR.R[ind2,ind2] .= R2
+    QR.Q[:,ind2] .= Matrix(Q2)
+
+    QR.M = M+M2;
+end
+
+function downdate!(QR::AdaptiveQR, M2::Number)
+    QR.M = QR.M-M2;
+end
+
+function solve(QR::AdaptiveQR,B::AbstractArray)
+    # tmp = zeros(ComplexF64, QR.M,size(B,2))
+    # println("Bsz = $(size(get_Q(QR),2)*size(B,2))")
+    Q = get_Q(QR)
+    tmp = Q'*B
+    get_R(QR)\tmp
+end
+
+function solve!(X::AbstractArray,tmp::AbstractArray,QR::AdaptiveQR,B::AbstractArray)
+    # println("Bsz = $(size(get_Q(QR),2)*size(B,2))")
+    M = QR.M
+    
+    tmp2 = @view tmp[1:M,:]
+    Q = get_Q(QR)
+    # tmp2[:,:] = Q'*B
+    mul!(tmp2,Q',B)
+    X[1:M,:] = get_R(QR)\tmp2
+end
+
+function get_update_matrix(w0::AbstractVector, N::Number, n::Number, sz::AbstractVector)
+    Nw0 = length(w0)
+    if Nw0 == 1
+        M = (n==1) ? 2 : 2sz[1]+1
+        A = zeros(ComplexF64, N, M)
+        ks = zeros(Integer, 1, M)
+
+        if n == 1
+            # lambdainv = exp.(-2π*im*w0[1]*(sz[1]+1))
+            # lambda = exp.(2π*im*w0[1]*(sz[1]+1))
+            f = 2π*im*w0[1]*(sz[1]+1)
+
+            A[:,1] .= exp.(-f .* (0:N-1))# [lambdainv^t for t = 0:N-1]
+            # A[:,2] = [lambda^t for t = 0:N-1]
+            A[:,2] .= conj.(A[:,1])
+
+            ks[:] .= [-(sz[1]+1),sz[1]+1]
+        else
+            for (ii,k) in enumerate(-sz[1]:sz[1])
+                f = 2π*im*w0[1]*k
+                A[:,ii] .= exp.(f .* (0:N-1))
+                ks[ii] = k;
+            end
+        end
+        
+        return A, ks
+    end
+
+    A1, ks1 = get_update_matrix(w0[1:end-1], N, n, sz[1:end-1])
+    A2, ks2 = get_update_matrix(w0[[Nw0]], N, n-Nw0+1, sz[[Nw0]])
+
+    M1 = size(A1,2)
+    M2 = size(A2,2)
+    M = M1*M2
+
+    A = zeros(ComplexF64, N, M)
+    ks = zeros(Integer, Nw0, M)
+
+    for ii = 1:M2
+        ind = (ii-1)*M1 .+ (1:M1)
+        A[:,ind] .= Diagonal(A2[:,ii]) * A1 
+        ks[1:end-1,ind] .= ks1
+        ks[end,ind] .= ks2[ii]
+    end
+    
+    A, ks
+end
+
+# """
+    
+
+# """
+function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix; validation_fraction::Number=0.05)
+    # Problem dimensions
+    Nw0 = length(w0)
+    D, N = size(hs)
+    
+    N_train = floor(Integer, (1-validation_fraction)*N)
+
+    ind_train = 1:N_train
+    ind_val = N_train+1:N
+
+    # Initialize the least-squares problem
+    sz = zeros(Integer, Nw0)
+    B = hs'
+    B_train = B[ind_train, :] .* (1. + 0. * im)
+    B_val = B[ind_val, :] .* (1. + 0. * im)
+    err_den = norm(B[ind_val, :]) # normalization for the relative error
+    
+    mode_bank = ones(ComplexF64, N, 1)
+    ks_bank = zeros(Integer, Nw0, 1)
+    tmp = zeros(ComplexF64,N,D)
+    for ii = 1:Nw0
+        sz_ii = zeros(Integer, Nw0)
+        sz_ii[1:ii-1] .= 1;
+        Aii, ksii = get_update_matrix(w0,N,ii,sz_ii)
+
+        mode_bank = hcat(mode_bank, Aii)
+        ks_bank = hcat(ks_bank,ksii)
+    end
+    ind_A=[1]
+    
+    QR = AdaptiveQR(ComplexF64, N_train)
+    update!(QR, mode_bank[ind_train,ind_A])
+
+    X = solve(QR,B_train) # mode_bank[ind_train,ind_A]\B[ind_train,:]
+    err = norm(mode_bank[ind_val,ind_A]*X-B_val)/err_den
+
+    Lmode = size(mode_bank,2);
+    
+    
+
+    # Adaptively find the best validation error
+    for _ = 1:N_train # This loop should always break, but making it finite for error catching
+        # Consider updating in each dimension
+        ind_candidates = AbstractVector[]
+        X_candidates = AbstractArray[]
+        err_candidates = zeros(0)
+
+        for jj = 1:Nw0
+            ind = trues(size(mode_bank,2))
+            for ll = 1:Nw0
+                if ll == jj
+                    ind = ind .&& abs.(ks_bank[jj,:]) .== sz[jj]+1 # The wavenumber is increasing in the jj direction
+                else
+                    ind = ind .&& abs.(ks_bank[ll,:]) .<= sz[ll] # and not in the other directions
+                end
+            end
+            ind = (1:size(mode_bank,2))[ind]
+            ind_Atmp = vcat(ind_A,ind)
+
+            push!(ind_candidates, ind)
+            
+            if length(ind_Atmp) > N_train
+                push!(err_candidates,Inf)
+                push!(X_candidates, [])
+            else
+                update!(QR,mode_bank[ind_train,ind])
+                Xtmp = solve(QR, B_train)
+                # Xtmp = zeros(ComplexF64,QR.M,D)
+                # solve!(Xtmp,tmp,QR,B_train)
+
+                push!(err_candidates, norm(mode_bank[ind_val, ind_Atmp]*Xtmp - B_val)/err_den)
+                push!(X_candidates, Xtmp)
+                downdate!(QR,length(ind))
+            end
+        end
+        
+        # Update in the best direction or break
+        m = argmin(err_candidates)
+        # println("ks = $ks")
+        # display(ks_bank)
+        # println("err=$err")
+        if err_candidates[m] < err
+            # A = hcat(A, @view mode_bank[:,ind_candidates[m]])
+            ind_A = vcat(ind_A,ind_candidates[m])
+            # ks = hcat(ks, @view ks_bank[:,ind_candidates[m]])
+            X = X_candidates[m]
+            err = err_candidates[m]
+            update!(QR,mode_bank[ind_train,ind_candidates[m]])
+            
+            mode_next, ks_next = get_update_matrix(w0,N,m,sz .+ 1)
+
+            Lnext = size(mode_next,2)
+            while Lnext+Lmode >= size(mode_bank,2)
+                tmp = mode_bank
+                tmp_k = ks_bank
+                
+                mode_bank = zeros(ComplexF64,N,2*size(tmp,2))
+                ks_bank = zeros(Integer,Nw0,2*size(tmp,2))
+                mode_bank[:,1:Lmode] .= tmp[:,1:Lmode]
+                ks_bank[:,1:Lmode] .= tmp_k[:,1:Lmode]
+            end
+            mode_bank[:,Lmode+1:Lmode+Lnext] .= mode_next
+            ks_bank[:,Lmode+1:Lmode+Lnext] .= ks_next
+
+            Lmode = Lmode+Lnext
+            sz[m] = sz[m]+1
+        else
+            break
+        end
+    end
+    
+    # Get the torus
+    ks = ks_bank[:,ind_A]
+    Nks = [maximum(row) for row in eachrow(ks)]
+    tor = FourierTorus(D, Nks; τ = 2π .* w0);
+    for (ii, k) in enumerate(eachcol(ks))
+        tor.a[:, 1, (k + Nks .+ 1)...] = X[ii, :]
+    end
+
+    return tor, err
+end
+
+"""
+    get_torus(w0::AbstractVector, hs::AbstractArray, ws::AbstractVector, coefs::AbstractArray;
+                   coef_cutoff::Number = 1e-6, tol::Number=1e-9, gridratio::Number=10., 
+                   validation_fraction::Number=0.05)
+
+Project a sequence of observables onto an `InvariantTorus`. To handle potential scale separation 
+between dimensions (long thin tori), the outputs ws and coefs
+
+Input:
+- `w0`: The rotation vector, likely obtained via [`get_w0`](@ref)
+- `hs`: The sequence of observables, likely taken from [`adaptive_birkhoff_extrapolation`](@ref)
+- `ws`: The rotation number roots returned from [`get_w0`](@ref)
+- `coefs`: The projected inner product coefficients from [`get_w0`](@ref)
+- `coef_cutoff=1e-6`
+"""
+function get_torus(w0::AbstractVector, hs::AbstractArray, ws::AbstractVector, coefs::AbstractArray;
+                   coef_cutoff::Number = 1e-6, tol::Number=1e-9, gridratio::Number=10., 
+                   validation_fraction::Number=0.05)
+    N = size(hs, 2)
+    
+    ## Step 1: Estimate the maximum number of modes in each direction
+    coef_norms = [norm(x) for x in eachrow(coefs)]
+    abs_cutoff = coef_cutoff * (norm(coef_norms) / sqrt(length(coef_norms)))
+    N_est = sum(coef_norms .> abs_cutoff)
+    N_est = 2*(N_est÷2)
+    # display(N_est)
+
+    Ngrids = floor(Integer,gridratio*sqrt(N_est/2)) * ones(Integer,length(w0))
+    wgrid, kgrid = get_wk_grid(w0, Ngrids)
+    nearest = [search_sorted_freqs(wgrid, w) for w in ws[1:N_est]]
+    matches = [abs(mid_mod(ws[ii]-wgrid[nearest[ii]]))<tol for ii = 1:N_est]
+    
+    ks = kgrid[:, nearest[matches]]
+    Nks = [maximum(abs.(row)) for row in eachrow(ks)]
+
+    ## Step 2: Project `hs` onto the modes
+    
+    # Get modenumbers
+    ks = zeros(Integer, length(Nks),prod(2 .* Nks .+ 1))
+    cart = CartesianIndices(Tuple([-Nk:Nk for Nk in Nks]))
+    for ii = 1:length(Nks), jj in 1:prod(2 .* Nks .+ 1)
+        ks[:,jj].=Tuple(cart[jj])
+    end
+
+    # Get modes
+    fs = (2π*im) .* (ks'*w0)
+    modes = [exp(f*t) for t in 0:N-1, f in fs]
+
+    # Project onto training data and get validation error
+    N_val = ceil(Integer, validation_fraction*N)
+    
+    ind_train = 1:N-N_val
+    ind_val = N-N_val+1:N
+    
+    coefs = modes[ind_train,:]\hs[:, ind_train]'
+    err_val = norm(modes[ind_val,:]*coefs - hs[:,ind_val]')/norm(modes[ind_val,:])
+
+
+    ## Step 3: Form the invariant torus
+    tor = FourierTorus(size(hs,1), Nks; τ = 2π .* w0);
+    # display(length(ks))
+    for (ii, k) in enumerate(eachcol(ks))
+        # display(k + Nks .+ 1)
+        tor.a[:, 1, (k + Nks .+ 1)...] = coefs[ii, :]
+    end
+
+    return tor, err_val
+end
+
+# OLD (probably)
 function get_Nmode(ω0::Number, N::Number, modetol::Number)
     W = wba_weight(1,N);
     w = diag(W*W);
@@ -608,7 +1278,7 @@ function get_circle_info(hs::AbstractArray, c::AbstractArray;
     # Only check the modes for rational numbers that account for a significant
     # amount of the energy of the signal
     ind = [norm(coefs[ii, :])/coefnorm > ratcutoff for ii = 1:length(λs)]
-    ind_rat, Nisland = find_rationals(ωs[ind], λs[ind], max_island_d, rattol)
+    ind_rat, Nisland = find_rationals(ωs[ind], max_island_d, rattol)
 
     # Get the coefficients of the invariant circle
     ω0 = ωs[1]*2π
