@@ -627,8 +627,6 @@ function initial_w0(w0::AbstractVector, ws::AbstractVector, Nw0::Integer, tol::N
     Nmatches_best = 0  # Number of matches
     matches, Nmatches = match_ws(w0, ws, tol, Ngrids)
 
-    # println("initial_w0: w0 = $(w0)")
-
     if length(w0) == Nw0
         # If w0 is fully specified, return it and how well it did
         return w0, matches, Nmatches
@@ -668,11 +666,8 @@ function var_h_normalization(r_h::Number, Ngrids::AbstractVector, Nw0::Number)
 end
 
 function wind_increment(wind, Nw, k)
-    # println("entering wind_increment, wind=$wind, Nw=$Nw, k=$k")
-    # println("(k==1) || (wind[k] < Nw) = $((k==1) || (wind[k] < Nw))")
     if (k==1) || (wind[k] < Nw)
         wind[k] = wind[k] + 1
-        # println("exiting wind_increment, wind=$wind, Nw=$Nw, k=$k")
         return wind[k]
     else
         wind[k] = wind_increment(wind, Nw-1, k-1) + 1
@@ -840,8 +835,7 @@ function get_w0(hs::AbstractArray, c::AbstractVector, dim::Number; tol::Number=1
     # Step 2: Get a candidate value of w0
     Ngrids = floor(Integer, sqrt(Nsearch)*gridratio) .* ones(Integer, dim)
     w0, matches, Nmatches = initial_w0(Number[], ws[1:2:2Nsearch], dim, tol, Ngrids)
-    println(matches)
-
+    
     # Step 3: Find the optimal rotation vector by KZ basis
     coef_norms = [norm(row) for row in eachrow(coefs[1:2Nkz,:])]
     w0 = refine_w0(w0, ws[1:2Nkz], coef_norms, tol, gridratio)
@@ -853,11 +847,20 @@ end
 mutable struct AdaptiveQR{T}
     N::Integer;
     M::Integer;
+    D::Integer;
     Q::AbstractMatrix{T};
     R::AbstractMatrix{T};
+    X::AbstractMatrix{T};
+    kinds::AbstractVector;
 
-    function AdaptiveQR(T::Type, N::Number)
-        new{T}(N,0,zeros(T,N,1),zeros(T,1,1))
+    function AdaptiveQR(T::Type, N::Number, D::Number)
+        new{T}(N,
+               0,
+               D,
+               zeros(T,N,1),
+               zeros(T,1,1),
+               zeros(T,1,D),
+               zeros(Integer,1))
     end
 end
 
@@ -869,22 +872,56 @@ function get_R(QR::AdaptiveQR)
     @views UpperTriangular(QR.R[1:QR.M,1:QR.M])
 end
 
+function get_X(QR::AdaptiveQR)
+    @views QR.X[1:QR.M,:]
+end
+
+function get_kinds(QR::AdaptiveQR)
+    @views QR.kinds[1:QR.M]
+end
+
 function double!(QR::AdaptiveQR{T}) where T
     Q = get_Q(QR)
     R = get_R(QR)
+    X = get_X(QR)
+    kinds = get_kinds(QR)
+
     M = QR.M
     N = QR.N
+    D = QR.D
 
     buf = size(QR.Q,2)
 
-    QR.Q = Matrix{T}(undef,N,2buf)
-    QR.Q[:,1:M] = Q
-
-    QR.R = zeros(T,2buf,2buf)
-    QR.R[1:M,1:M] = R;
+    QR.Q =  Matrix{T}(undef, N,    2buf)
+    QR.R =  zeros( T,        2buf, 2buf)
+    QR.X =  Matrix{T}(undef, 2buf, D)
+    QR.kinds = Vector{Integer}(undef, 2buf)
+    
+    QR.Q[:,1:M]   .= Q
+    QR.R[1:M,1:M] .= R
+    QR.X[1:M, :]  .= X
+    QR.kinds[1:M] .= kinds
 end
 
-function update!(QR::AdaptiveQR, A::AbstractArray)
+function update_inds(ks_bank::AbstractArray, kinds::AbstractVector, sz::AbstractVector, dir::Number)
+    k_iter = trues(size(ks_bank,2))
+    k_iter[kinds] .= false
+    sz_dir = copy(sz)
+    sz_dir[dir] = sz_dir[dir] + 1
+
+    for (ii, k) in enumerate(eachcol(ks_bank))
+        if k_iter[ii]
+            if !(prod(abs.(k) .<= sz_dir))
+                k_iter[ii] = false
+            end
+        end
+    end
+
+    kinds_out = (1:size(ks_bank,2))[k_iter]
+    kinds_out
+end
+
+function update!(QR::AdaptiveQR, A::AbstractArray, kinds::AbstractArray)
     M = QR.M
     N = QR.N
     M2 = size(A,2)
@@ -897,13 +934,13 @@ function update!(QR::AdaptiveQR, A::AbstractArray)
     ind1 = 1:M
     ind2 = M+1:M+M2
     Q = get_Q(QR)
-    # println("Asz = $(size(get_Q(QR),2)*size(A,2))")
     QR.R[ind1, ind2] = Q'*A;
-    A = A - Q * QR.R[ind1, ind2] # we project too often
+    A = A - Q * QR.R[ind1, ind2] 
     
     Q2, R2 = qr(A)
     QR.R[ind2,ind2] .= R2
     QR.Q[:,ind2] .= Matrix(Q2)
+    QR.kinds[ind2] .= kinds
 
     QR.M = M+M2;
 end
@@ -912,24 +949,33 @@ function downdate!(QR::AdaptiveQR, M2::Number)
     QR.M = QR.M-M2;
 end
 
-function solve(QR::AdaptiveQR,B::AbstractArray)
-    # tmp = zeros(ComplexF64, QR.M,size(B,2))
-    # println("Bsz = $(size(get_Q(QR),2)*size(B,2))")
-    Q = get_Q(QR)
-    tmp = Q'*B
-    get_R(QR)\tmp
-end
+# function solve(QR::AdaptiveQR{T}, B::AbstractArray{T}) where T
+#     # tmp = zeros(ComplexF64, QR.M,size(B,2))
+#     # println("Bsz = $(size(get_Q(QR),2)*size(B,2))")
+#     Q = get_Q(QR)
+#     tmp = Q'*B
+#     get_R(QR)\tmp
+# end
 
-function solve!(X::AbstractArray,tmp::AbstractArray,QR::AdaptiveQR,B::AbstractArray)
-    # println("Bsz = $(size(get_Q(QR),2)*size(B,2))")
+# function solve!(X::AbstractArray,tmp::AbstractArray,QR::AdaptiveQR,B::AbstractArray)
+#     # println("Bsz = $(size(get_Q(QR),2)*size(B,2))")
+#     M = QR.M
+    
+#     tmp2 = @view tmp[1:M,:]
+#     Q = get_Q(QR)
+#     # tmp2[:,:] = Q'*B
+#     mul!(tmp2,Q',B)
+#     X[1:M,:] = get_R(QR)\tmp2
+# end
+
+function solve!(QR::AdaptiveQR{T}, B::AbstractArray{T}) where T
+    Q = get_Q(QR)
+    R = get_R(QR)
     M = QR.M
     
-    tmp2 = @view tmp[1:M,:]
-    Q = get_Q(QR)
-    # tmp2[:,:] = Q'*B
-    mul!(tmp2,Q',B)
-    X[1:M,:] = get_R(QR)\tmp2
+    QR.X[1:M, :] .= R\(Q'*B)
 end
+
 
 function get_update_matrix(w0::AbstractVector, N::Number, n::Number, sz::AbstractVector)
     Nw0 = length(w0)
@@ -979,11 +1025,22 @@ function get_update_matrix(w0::AbstractVector, N::Number, n::Number, sz::Abstrac
     A, ks
 end
 
+function get_torus_err(mode_bank::AbstractArray, B_val::AbstractArray, ind_val::AbstractVector, 
+                       QR::AdaptiveQR)
+    kind = get_kinds(QR)
+    X = get_X(QR)
+    A_val = mode_bank[ind_val, kind]
+    v = A_val * X - B_val
+    norm(v)
+end
+
+
 # """
     
 
 # """
-function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix; validation_fraction::Number=0.05)
+function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix; 
+                            validation_fraction::Number=0.05, ridge_factor::Number=10)
     # Problem dimensions
     Nw0 = length(w0)
     D, N = size(hs)
@@ -997,27 +1054,30 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix; validation_f
     sz = zeros(Integer, Nw0)
     B = hs'
     B_train = B[ind_train, :] .* (1. + 0. * im)
-    B_val = B[ind_val, :] .* (1. + 0. * im)
+    B_val   = B[ind_val, :]   .* (1. + 0. * im)
     err_den = norm(B[ind_val, :]) # normalization for the relative error
     
     mode_bank = ones(ComplexF64, N, 1)
     ks_bank = zeros(Integer, Nw0, 1)
-    tmp = zeros(ComplexF64,N,D)
     for ii = 1:Nw0
         sz_ii = zeros(Integer, Nw0)
         sz_ii[1:ii-1] .= 1;
         Aii, ksii = get_update_matrix(w0,N,ii,sz_ii)
 
         mode_bank = hcat(mode_bank, Aii)
-        ks_bank = hcat(ks_bank,ksii)
+        ks_bank   = hcat(ks_bank,  ksii)
     end
     ind_A=[1]
     
-    QR = AdaptiveQR(ComplexF64, N_train)
-    update!(QR, mode_bank[ind_train,ind_A])
+    QRs = [AdaptiveQR(ComplexF64, N_train, D) for _ = 1:Nw0]
+    for ii = 1:Nw0; 
+        update!(QRs[ii], mode_bank[ind_train,ind_A],ind_A)
+        solve!(QRs[ii],B_train)
+    end
 
-    X = solve(QR,B_train) # mode_bank[ind_train,ind_A]\B[ind_train,:]
-    err = norm(mode_bank[ind_val,ind_A]*X-B_val)/err_den
+    dir_best = 1;
+    err_best = get_torus_err(mode_bank, B_val, ind_val, QRs[dir_best]) / err_den
+    M_best   = 1;
 
     Lmode = size(mode_bank,2);
     
@@ -1026,53 +1086,41 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix; validation_f
     # Adaptively find the best validation error
     for _ = 1:N_train # This loop should always break, but making it finite for error catching
         # Consider updating in each dimension
-        ind_candidates = AbstractVector[]
-        X_candidates = AbstractArray[]
-        err_candidates = zeros(0)
+        err_candidates = zeros(Nw0)
 
         for jj = 1:Nw0
-            ind = trues(size(mode_bank,2))
-            for ll = 1:Nw0
-                if ll == jj
-                    ind = ind .&& abs.(ks_bank[jj,:]) .== sz[jj]+1 # The wavenumber is increasing in the jj direction
-                else
-                    ind = ind .&& abs.(ks_bank[ll,:]) .<= sz[ll] # and not in the other directions
-                end
-            end
-            ind = (1:size(mode_bank,2))[ind]
-            ind_Atmp = vcat(ind_A,ind)
-
-            push!(ind_candidates, ind)
+            kind_update = update_inds((@view ks_bank[:,1:Lmode]), get_kinds(QRs[jj]), sz, jj)
+            # println("jj=$jj, ks = ")
+            # display(ks_bank[:, get_kinds(QRs[jj])])
+            # println("Next ks = ")
+            # display(ks_bank[:, kind_update])
             
-            if length(ind_Atmp) > N_train
-                push!(err_candidates,Inf)
-                push!(X_candidates, [])
+            if length(kind_update)+QRs[jj].M > N_train
+                err_candidates[jj] = Inf
             else
-                update!(QR,mode_bank[ind_train,ind])
-                Xtmp = solve(QR, B_train)
-                # Xtmp = zeros(ComplexF64,QR.M,D)
-                # solve!(Xtmp,tmp,QR,B_train)
-
-                push!(err_candidates, norm(mode_bank[ind_val, ind_Atmp]*Xtmp - B_val)/err_den)
-                push!(X_candidates, Xtmp)
-                downdate!(QR,length(ind))
+                update!(QRs[jj],(mode_bank[ind_train,kind_update]), kind_update)
+                solve!(QRs[jj], B_train)
+                err_candidates[jj] = get_torus_err(mode_bank, B_val, ind_val, QRs[jj])/err_den
             end
         end
         
         # Update in the best direction or break
-        m = argmin(err_candidates)
+        dir = argmin(err_candidates)
+        err_dir = err_candidates[dir]
         # println("ks = $ks")
         # display(ks_bank)
         # println("err=$err")
-        if err_candidates[m] < err
-            # A = hcat(A, @view mode_bank[:,ind_candidates[m]])
-            ind_A = vcat(ind_A,ind_candidates[m])
-            # ks = hcat(ks, @view ks_bank[:,ind_candidates[m]])
-            X = X_candidates[m]
-            err = err_candidates[m]
-            update!(QR,mode_bank[ind_train,ind_candidates[m]])
-            
-            mode_next, ks_next = get_update_matrix(w0,N,m,sz .+ 1)
+        if err_dir < ridge_factor*err_best
+            # If this is the best we've seen, update best values
+            if err_dir < err_best
+                err_best = err_dir
+                dir_best = dir
+                M_best   = QRs[dir].M
+            end
+            # println("dir = $(dir)")
+
+            # Either way, we take a next stpe
+            mode_next, ks_next = get_update_matrix(w0,N,dir,sz .+ 1)
 
             Lnext = size(mode_next,2)
             while Lnext+Lmode >= size(mode_bank,2)
@@ -1088,21 +1136,28 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix; validation_f
             ks_bank[:,Lmode+1:Lmode+Lnext] .= ks_next
 
             Lmode = Lmode+Lnext
-            sz[m] = sz[m]+1
+            sz[dir] = sz[dir]+1
         else
             break
         end
     end
     
-    # Get the torus
-    ks = ks_bank[:,ind_A]
+    # Recover the best solution
+    QR = QRs[dir_best]
+    downdate!(QR,QR.M-M_best)
+    solve!(QR,B_train)
+    X = get_X(QR)
+    kinds = get_kinds(QR)
+
+    # Create the torus
+    ks = ks_bank[:,kinds]
     Nks = [maximum(row) for row in eachrow(ks)]
     tor = FourierTorus(D, Nks; τ = 2π .* w0);
     for (ii, k) in enumerate(eachcol(ks))
         tor.a[:, 1, (k + Nks .+ 1)...] = X[ii, :]
     end
 
-    return tor, err
+    return tor, err_best
 end
 
 """
@@ -1199,8 +1254,7 @@ function get_circle_coef(hs::AbstractArray, ω0::Number;
     if Nmode == -1
         Nmode = get_Nmode(ω0, N, modetol)
     end
-    # println("Nmode = $(Nmode)")
-
+    
     # λ = exp(2π*im * ω0);
     ωs = zeros(Nmode);
     ωs[1] = 0;
