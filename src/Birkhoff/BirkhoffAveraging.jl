@@ -848,32 +848,40 @@ mutable struct AdaptiveQR{T}
     N::Integer;
     M::Integer;
     D::Integer;
-    Q::AbstractMatrix{T};
-    R::AbstractMatrix{T};
+    N_val::Integer;
+    factors::AbstractMatrix{T};
+    τ::AbstractVector{T};
     X::AbstractMatrix{T};
     kinds::AbstractVector;
+    A_val::AbstractMatrix;
 
-    function AdaptiveQR(T::Type, N::Number, D::Number)
+    function AdaptiveQR(T::Type, N::Number, D::Number, N_val::Number)
         new{T}(N,
                0,
                D,
+               N_val,
                zeros(T,N,1),
-               zeros(T,1,1),
+               zeros(T,1),
                zeros(T,1,D),
-               zeros(Integer,1))
+               zeros(Integer,1),
+               zeros(T,N_val,1))
     end
 end
 
 function get_Q(QR::AdaptiveQR)
-    @views QR.Q[:,1:QR.M]
+    @views LinearAlgebra.QR(QR.factors[:,1:QR.M], QR.τ[1:QR.M]).Q
 end
 
 function get_R(QR::AdaptiveQR)
-    @views UpperTriangular(QR.R[1:QR.M,1:QR.M])
+    @views UpperTriangular(QR.factors[1:QR.M,1:QR.M])
 end
 
 function get_X(QR::AdaptiveQR)
     @views QR.X[1:QR.M,:]
+end
+
+function get_A_val(QR::AdaptiveQR)
+    @views QR.A_val[:,1:QR.M]
 end
 
 function get_kinds(QR::AdaptiveQR)
@@ -881,26 +889,31 @@ function get_kinds(QR::AdaptiveQR)
 end
 
 function double!(QR::AdaptiveQR{T}) where T
-    Q = get_Q(QR)
-    R = get_R(QR)
+    factors = QR.factors
+    τ = QR.τ
     X = get_X(QR)
     kinds = get_kinds(QR)
+    A_val = get_A_val(QR)
 
     M = QR.M
     N = QR.N
     D = QR.D
+    N_val = QR.N_val
 
-    buf = size(QR.Q,2)
+    buf = length(τ)
 
-    QR.Q =  Matrix{T}(undef, N,    2buf)
-    QR.R =  zeros( T,        2buf, 2buf)
-    QR.X =  Matrix{T}(undef, 2buf, D)
-    QR.kinds = Vector{Integer}(undef, 2buf)
+
+    QR.factors = Matrix{T}(undef, N, 2buf)
+    QR.τ       = zeros(T, 2buf)
+    QR.X       = Matrix{T}(undef, 2buf, D)
+    QR.kinds   = Vector{Integer}(undef, 2buf)
+    QR.A_val   = Matrix{T}(undef, N_val, 2buf)
     
-    QR.Q[:,1:M]   .= Q
-    QR.R[1:M,1:M] .= R
-    QR.X[1:M, :]  .= X
-    QR.kinds[1:M] .= kinds
+    QR.factors[:,1:M] .= factors[:,1:M]
+    QR.τ[1:M]         .= τ[1:M]
+    QR.X[1:M, :]      .= X
+    QR.kinds[1:M]     .= kinds
+    QR.A_val[:,1:M]   .= A_val
 end
 
 function update_inds(ks_bank::AbstractArray, kinds::AbstractVector, sz::AbstractVector, dir::Number)
@@ -921,59 +934,47 @@ function update_inds(ks_bank::AbstractArray, kinds::AbstractVector, sz::Abstract
     kinds_out
 end
 
-function update!(QR::AdaptiveQR, A::AbstractArray, kinds::AbstractArray)
+function update!(QR::AdaptiveQR, A::AbstractArray, kinds::AbstractArray, A_val::AbstractArray)
     M = QR.M
     N = QR.N
     M2 = size(A,2)
     @assert size(A,1) == N
 
-    while QR.M+M2 > size(QR.R,2)
+    while QR.M+M2 > length(QR.τ)
         double!(QR)
     end
 
     ind1 = 1:M
+    not_ind1 = M+1:N;
     ind2 = M+1:M+M2
-    Q = get_Q(QR)
-    QR.R[ind1, ind2] = Q'*A;
-    A = A - Q * QR.R[ind1, ind2] 
     
-    Q2, R2 = qr(A)
-    QR.R[ind2,ind2] .= R2
-    QR.Q[:,ind2] .= Matrix(Q2)
+    Q = get_Q(QR)
+    Q_proj = Q'*A
+
+    QR.factors[ind1, ind2] .= Q_proj[ind1,:];
+    factor_up, τ_up = LAPACK.geqrf!(Q_proj[not_ind1,:])
+    
+    QR.factors[not_ind1, ind2] .= factor_up
+    QR.τ[ind2] .= τ_up
+
     QR.kinds[ind2] .= kinds
 
+    QR.A_val[:,ind2] .= A_val
+
     QR.M = M+M2;
+
 end
 
 function downdate!(QR::AdaptiveQR, M2::Number)
     QR.M = QR.M-M2;
 end
 
-# function solve(QR::AdaptiveQR{T}, B::AbstractArray{T}) where T
-#     # tmp = zeros(ComplexF64, QR.M,size(B,2))
-#     # println("Bsz = $(size(get_Q(QR),2)*size(B,2))")
-#     Q = get_Q(QR)
-#     tmp = Q'*B
-#     get_R(QR)\tmp
-# end
-
-# function solve!(X::AbstractArray,tmp::AbstractArray,QR::AdaptiveQR,B::AbstractArray)
-#     # println("Bsz = $(size(get_Q(QR),2)*size(B,2))")
-#     M = QR.M
-    
-#     tmp2 = @view tmp[1:M,:]
-#     Q = get_Q(QR)
-#     # tmp2[:,:] = Q'*B
-#     mul!(tmp2,Q',B)
-#     X[1:M,:] = get_R(QR)\tmp2
-# end
-
 function solve!(QR::AdaptiveQR{T}, B::AbstractArray{T}) where T
-    Q = get_Q(QR)
     R = get_R(QR)
+    Q = get_Q(QR)
     M = QR.M
-    
-    QR.X[1:M, :] .= R\(Q'*B)
+
+    @views QR.X[1:M, :] .= R\(Q'*B)[1:M,:]
 end
 
 
@@ -1012,7 +1013,8 @@ function get_update_matrix(w0::AbstractVector, N::Number, n::Number, sz::Abstrac
     M2 = size(A2,2)
     M = M1*M2
 
-    A = zeros(ComplexF64, N, M)
+    # A = zeros(ComplexF64, N, M)
+    A = Matrix{ComplexF64}(undef, N, M)
     ks = zeros(Integer, Nw0, M)
 
     for ii = 1:M2
@@ -1025,11 +1027,15 @@ function get_update_matrix(w0::AbstractVector, N::Number, n::Number, sz::Abstrac
     A, ks
 end
 
-function get_torus_err(mode_bank::AbstractArray, B_val::AbstractArray, ind_val::AbstractVector, 
-                       QR::AdaptiveQR)
-    kind = get_kinds(QR)
+function get_torus_err(B_val::AbstractArray, QR::AdaptiveQR)
     X = get_X(QR)
-    A_val = mode_bank[ind_val, kind]
+    A_val = get_A_val(QR)
+    # println("A_val")
+    # display(typeof(A_val))
+    # println("X")
+    # display(typeof(X))
+    # println("B_val")
+    # display(typeof(B_val))
     v = A_val * X - B_val
     norm(v)
 end
@@ -1069,14 +1075,14 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
     end
     ind_A=[1]
     
-    QRs = [AdaptiveQR(ComplexF64, N_train, D) for _ = 1:Nw0]
+    QRs = [AdaptiveQR(ComplexF64, N_train, D, N-N_train) for _ = 1:Nw0]
     for ii = 1:Nw0; 
-        update!(QRs[ii], mode_bank[ind_train,ind_A],ind_A)
+        update!(QRs[ii], mode_bank[ind_train,ind_A],ind_A, mode_bank[ind_val, ind_A])
         solve!(QRs[ii],B_train)
     end
 
     dir_best = 1;
-    err_best = get_torus_err(mode_bank, B_val, ind_val, QRs[dir_best]) / err_den
+    err_best = get_torus_err(B_val, QRs[dir_best]) / err_den
     M_best   = 1;
 
     Lmode = size(mode_bank,2);
@@ -1098,9 +1104,9 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
             if length(kind_update)+QRs[jj].M > N_train
                 err_candidates[jj] = Inf
             else
-                update!(QRs[jj],(mode_bank[ind_train,kind_update]), kind_update)
+                @views update!(QRs[jj],(mode_bank[ind_train,kind_update]), kind_update, mode_bank[ind_val, kind_update])
                 solve!(QRs[jj], B_train)
-                err_candidates[jj] = get_torus_err(mode_bank, B_val, ind_val, QRs[jj])/err_den
+                err_candidates[jj] = get_torus_err(B_val, QRs[jj])/err_den
             end
         end
         
@@ -1127,7 +1133,8 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
                 tmp = mode_bank
                 tmp_k = ks_bank
                 
-                mode_bank = zeros(ComplexF64,N,2*size(tmp,2))
+                # mode_bank = zeros(ComplexF64,N,2*size(tmp,2))
+                mode_bank = Matrix{ComplexF64}(undef, N, 2*size(tmp,2))
                 ks_bank = zeros(Integer,Nw0,2*size(tmp,2))
                 mode_bank[:,1:Lmode] .= tmp[:,1:Lmode]
                 ks_bank[:,1:Lmode] .= tmp_k[:,1:Lmode]
