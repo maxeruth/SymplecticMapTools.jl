@@ -47,20 +47,27 @@ function evaluate(tor::FourierTorus, theta::AbstractVector)
     real.(reshape(a,d,p))
 end
 
+"""
+    evaluate_on_grid(tor::FourierTorus, thetavecs::AbstractVector)
+
+
+"""
 function evaluate_on_grid(tor::FourierTorus, thetavecs::AbstractVector)
+    # Get size
     d,p,Na = tor.sz
     D = length(Na)
 
+    # "Unroll" the Fourier evaluation on each dimension
     a = tor.a
     Nthetas = vcat(length.(thetavecs), 1)
     for ii = D:-1:1
         Ntheta_ii = prod(Nthetas[ii+1:end])
-        Na_old = (ii==1) ? d*p : d*p*prod(2 .* Na[1:ii-1] .+ 1)
-        a = reshape(a, Na_old, 2Na[ii]+1, Ntheta_ii)
+        Na_prev = (ii==1) ? d*p : d*p*prod(2 .* Na[1:ii-1] .+ 1) 
+        a = reshape(a, Na_prev, 2Na[ii]+1, Ntheta_ii)
         
         F = [exp(im*n*theta) for n = -Na[ii]:Na[ii], theta in thetavecs[ii]]
 
-        new_a = zeros(Complex{Float64},Na_old, Nthetas[ii], Ntheta_ii)
+        new_a = zeros(Complex{Float64},Na_prev, Nthetas[ii], Ntheta_ii)
         for jj = 1:Ntheta_ii
             new_a[:,:,jj] = a[:,:,jj]*F
         end

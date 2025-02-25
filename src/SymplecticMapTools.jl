@@ -23,6 +23,8 @@ using Optim
 using ColorSchemes
 using Colors
 using LLLplus
+using Distributions
+using JLD2
 
 # using LoopVectorization
 
@@ -79,8 +81,8 @@ export standard_map_F, standard_map_FJ, polar_map
 export vector_mpe_backslash, vector_mpe_iterative, vector_rre_backslash, vector_rre_iterative,
        ContFrac, big_cont_frac_eval, partial_frac, denoms, big_partial_frac, big_denoms, wba_weight,
        weighted_birkhoff_average, doubling_birkhoff_average, birkhoff_extrapolation, 
-       adaptive_birkhoff_extrapolation, get_w0, get_torus, sum_stats, get_sum_ave, get_circle_info,
-       adaptive_get_torus
+       adaptive_birkhoff_extrapolation, get_w0, get_w0!, get_torus, sum_stats, get_sum_ave, 
+       get_circle_info, adaptive_get_torus, adaptive_get_torus!
 
 # LyapunovExponents.jl
 export lyapunov_exponent, lyapunov_exponents
