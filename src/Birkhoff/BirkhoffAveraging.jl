@@ -156,6 +156,13 @@ mutable struct BRREsolution
     end
 end
 
+"""
+    save_rre(file::AbstractString, sol::BRREsolution)
+
+Save an RRE solution object to a file (not including the evaluation and observation
+function `F` and `h`). Currently saves using JLD2, but could be 
+extended in the future.
+"""
 function save_rre(file::AbstractString, sol::BRREsolution)
     D = sol.D
     xs = sol.xs
@@ -176,11 +183,18 @@ function save_rre(file::AbstractString, sol::BRREsolution)
 
     @save file D xs hs K c h_ave resid_RRE d w0 resid_w0 resid_tor tor_a tor_τ tor_d tor_p tor_Na
 end
+ 
+"""
+    load_rre(file::AbstractString, sol::BRREsolution)
 
+Load an RRE solution object from a file (saved by `save_rre`). 
+"""
 function load_rre(file::AbstractString)
     @load file D xs hs K c h_ave resid_RRE d w0 resid_w0 resid_tor tor_a tor_τ tor_d tor_p tor_Na
-    tor = FourierTorus(tor_d, tor_Na; a=tor_a, p=tor_sz[2], τ=tor_p)
+    tor = FourierTorus(tor_d, tor_Na; a=tor_a, p=tor_p, τ=tor_τ)
     sol = BRREsolution(D, (x)->nothing, (x)->nothing, xs, hs, K, c, h_ave, resid_RRE)
+    sol.d = d
+    sol.w0 = w0
     sol.resid_w0 = resid_w0
     sol.tor = tor
     sol.resid_tor = resid_tor
