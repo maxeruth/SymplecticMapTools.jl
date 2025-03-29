@@ -213,7 +213,7 @@ end
     birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
                            N::Integer, K::Integer; iterative::Bool=false,
                            x_prev::Union{AbstractArray,Nothing}=nothing,
-                           rre::Bool=false)
+                           rre::Bool=false, weighted::Bool=false)
 
 As input, takes an initial point `x0`, a symplectic map `F`, and an observable
 `h` (can choose the identity as a default `h = (x)->x`). Then, the method
@@ -231,7 +231,7 @@ thing.
 function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
                                 N::Integer, K::Integer; iterative::Bool=false,
                                 x_prev::Union{AbstractArray,Nothing}=nothing,
-                                rre::Bool=false, ϵ::Number=0.0)
+                                rre::Bool=true, ϵ::Number=0.0, weighted::Bool=false)
     x = deepcopy(x0);
     h0 = h(x);
     D = length(h0);
@@ -264,21 +264,21 @@ function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
 
     if rre
         if iterative
-            c, sums, resid, history = vector_rre_iterative(hs, K; ϵ)
+            c, sums, resid, history = vector_rre_iterative(hs, K; ϵ, weighted)
         else
-            c, sums, resid = vector_rre_backslash(hs, K; ϵ)
+            c, sums, resid = vector_rre_backslash(hs, K; ϵ, weighted)
         end
     else
         if iterative
-            c, sums, resid, history = vector_mpe_iterative(hs, K; ϵ)
+            c, sums, resid, history = vector_mpe_iterative(hs, K; ϵ, weighted)
         else
-            c, sums, resid = vector_mpe_backslash(hs, K; ϵ)
+            c, sums, resid = vector_mpe_backslash(hs, K; ϵ, weighted)
         end
     end
 
     h_ave = sums[:,1];
 
-    resid_RRE = norm(resid)/unorm(hs)
+    resid_RRE = ( norm(resid) / sqrt(length(resid)) )/unorm(hs)
 
     BRREsolution(D, F, h, xs, hs, K, c, h_ave, resid_RRE)
 end
@@ -323,7 +323,7 @@ Outputs:
 function adaptive_birkhoff_extrapolation(h::Function, F::Function,
                     x0::AbstractVector; rtol::Number=1e-10, Kinit = 20,
                     Kmax = 100, Kstride=20, iterative::Bool=false,
-                    Nfactor::Number=1, rre::Bool=true, ϵ::Number=0.0)
+                    Nfactor::Number=1, rre::Bool=true, ϵ::Number=0.0, weighted::Bool=false)
     #
     d = length(h(x0));
     K = Kinit-Kstride
@@ -336,7 +336,7 @@ function adaptive_birkhoff_extrapolation(h::Function, F::Function,
         K += Kstride;
         N = ceil(Int, 2*Nfactor*K / d);
 
-        sol = birkhoff_extrapolation(h, F, x0, N, K; iterative, x_prev=xs, rre, ϵ)
+        sol = birkhoff_extrapolation(h, F, x0, N, K; iterative, x_prev=xs, rre, ϵ, weighted)
         rnorm = sol.resid_RRE
     end
 
@@ -1173,12 +1173,13 @@ function get_update_matrix(w0::AbstractVector, N::Number, n::Number, sz::Abstrac
     A, ks
 end
 
-function get_torus_err(B_val::AbstractArray, QR::AdaptiveQR)
+function get_torus_err(B_val::AbstractArray, QR::AdaptiveQR, eps_ada::Number, ks_bank::AbstractArray)
     X = get_X(QR)
     A_val = get_A_val(QR)
     
     v = A_val * X - B_val
-    norm(v)
+    knorms = [sqrt(col'col + 1) for col in eachcol(@view ks_bank[:,get_kinds(QR)])]
+    sqrt(norm(v)^2 + eps_ada*norm(Diagonal(knorms)*X)^2)
 end
 
 
@@ -1186,7 +1187,8 @@ end
     
 # """
 function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix; 
-                            validation_fraction::Number=0.05, ridge_factor::Number=10)
+                            validation_fraction::Number=0.05, ridge_factor::Number=10,
+                            eps_ada::Number=1e-8)
     
     # Preprocess for an island
     Nisland = 1
@@ -1241,7 +1243,7 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
     end
 
     dir_best = 1;
-    err_best = get_torus_err(B_val, QRs[dir_best]) / err_den
+    err_best = get_torus_err(B_val, QRs[dir_best], eps_ada, ks_bank) / err_den
     M_best   = 1;
 
     Lmode = size(mode_bank,2);
@@ -1261,7 +1263,7 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
             else
                 @views update!(QRs[jj],(mode_bank[ind_train,kind_update]), kind_update, mode_bank[ind_val, kind_update])
                 solve!(QRs[jj], B_train)
-                err_candidates[jj] = get_torus_err(B_val, QRs[jj])/err_den
+                err_candidates[jj] = get_torus_err(B_val, QRs[jj], eps_ada, ks_bank)/err_den
             end
         end
         
@@ -1317,8 +1319,10 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
     return tor, err_best
 end
 
-function adaptive_get_torus!(sol::BRREsolution; validation_fraction::Number=0.05, ridge_factor::Number=10)
-    tor, resid_tor = adaptive_get_torus(sol.w0, sol.hs; validation_fraction, ridge_factor)
+function adaptive_get_torus!(sol::BRREsolution; 
+                             validation_fraction::Number=0.05, ridge_factor::Number=10,
+                             eps_ada::Number=1e-8)
+    tor, resid_tor = adaptive_get_torus(sol.w0, sol.hs; validation_fraction, ridge_factor, eps_ada)
 
     sol.tor = tor
     sol.resid_tor = resid_tor
