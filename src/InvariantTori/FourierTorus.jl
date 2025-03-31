@@ -93,7 +93,8 @@ function kam_residual(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
 
     thetavecs_shifted = [thetavecs[ii] .+ τ[ii] for ii = 1:length(τ)]
     xs_shifted = evaluate_on_grid(tor, thetavecs_shifted)
-    
+    xs_shifted = reshape(xs_shifted, d, p, N)
+
     Fxs = zeros(d, p, N)
     xs_unshifted = reshape(xs_unshifted, d, p, N)
     for ii = 1:p, jj = 1:N
@@ -104,6 +105,7 @@ function kam_residual(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
         end
     end
     Fxs = reshape(Fxs, d, p, Nthetas...)
+    xs_shifted = reshape(xs_shifted, d, p, Nthetas...)
 
     # println("xs_unshifted = ")
     # display(xs_unshifted)
