@@ -819,7 +819,6 @@ function w0_logposterior(w0::Number, w::Number, h2norm::Number, magk::Number,
     # As always, the w0=1/2 case is sensitive
     if w0 == 1/2
         sigma_w = sqrt(sigma_w)
-        println("")
     end
 
     # Probability of observing the frequency
