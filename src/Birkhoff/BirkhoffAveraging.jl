@@ -816,6 +816,12 @@ end
 function w0_logposterior(w0::Number, w::Number, h2norm::Number, magk::Number, 
                          sigma_w::Number, r_h::Number, C_h::Number, Nh::Integer, h2min::Number)
     
+    # As always, the w0=1/2 case is sensitive
+    if w0 == 1/2
+        sigma_w = sqrt(sigma_w)
+        println("")
+    end
+
     # Probability of observing the frequency
     wdist = Normal()
     Pw = logpdf(wdist, mid_mod(w0-w)/sigma_w) - log(sigma_w)
