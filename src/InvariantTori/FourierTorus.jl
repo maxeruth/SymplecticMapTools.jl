@@ -75,3 +75,40 @@ function evaluate_on_grid(tor::FourierTorus, thetavecs::AbstractVector)
     end
     real.(reshape(a,d,p,Nthetas[1:end-1]...))
 end
+
+"""
+    kam_residual(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
+
+
+Compute the function F(tor(θ))-tor(θ+τ) on the grid defined by thetavecs.
+"""
+function kam_residual(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
+    xs_unshifted = evaluate_on_grid(tor, thetavecs)
+    sz = size(xs_unshifted)
+    d = sz[1]
+    p = sz[2]
+    Nthetas = sz[3:end]
+    N = prod(Nthetas)
+    τ = tor.τ
+
+    Fxs = zeros(d, p, N)
+    xs_unshifted = reshape(xs_unshifted, d, p, N)
+    for ii = 1:p, jj = 1:N
+        ii_next = mod1(ii, p)
+        Fxs[:, ii_next, jj] = F(xs_unshifted[:, ii, jj])
+    end
+    Fxs = reshape(Fxs, d, p, Nthetas...)
+
+    thetavecs_shifted = [thetavecs[ii] .+ τ[ii] for ii = 1:length(τ)]
+    xs_shifted = evaluate_on_grid(tor, thetavecs_shifted)
+    
+    # println("xs_unshifted = $(xs_unshifted), xs_shifted = $(xs_shifted), Fxs = $(Fxs)")
+
+    return Fxs - xs_shifted
+end
+
+function kam_residual_norm(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
+    resid = kam_residual(tor, F, thetavecs)
+    N = prod(length.(thetavecs))
+    return norm(resid)/sqrt(N)
+end

@@ -65,7 +65,7 @@ export InvariantCircle, FourierCircle, get_Na, get_p, get_a0, set_a0!, get_Am, s
        get_circle_residual, gn_circle
 
 # FourierTorus.jl
-export InvariantTorus, FourierTorus, evaluate_on_grid
+export InvariantTorus, FourierTorus, evaluate_on_grid, kam_residual, kam_residual_norm
 
 # ConnectingOrbit.jl
 export ConnectingOrbit, get_am, set_am!, linear_initial_connecting_orbit, gn_connecting!
