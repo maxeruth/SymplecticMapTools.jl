@@ -91,18 +91,26 @@ function kam_residual(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
     N = prod(Nthetas)
     τ = tor.τ
 
-    Fxs = zeros(d, p, N)
-    xs_unshifted = reshape(xs_unshifted, d, p, N)
-    for ii = 1:p, jj = 1:N
-        ii_next = mod1(ii, p)
-        Fxs[:, ii_next, jj] = F(xs_unshifted[:, ii, jj])
-    end
-    Fxs = reshape(Fxs, d, p, Nthetas...)
-
     thetavecs_shifted = [thetavecs[ii] .+ τ[ii] for ii = 1:length(τ)]
     xs_shifted = evaluate_on_grid(tor, thetavecs_shifted)
     
-    # println("xs_unshifted = $(xs_unshifted), xs_shifted = $(xs_shifted), Fxs = $(Fxs)")
+    Fxs = zeros(d, p, N)
+    xs_unshifted = reshape(xs_unshifted, d, p, N)
+    for ii = 1:p, jj = 1:N
+        ii_next = mod1(ii+1, p)
+        Fxs[:, ii_next, jj] = F(xs_unshifted[:, ii, jj])
+        if ii > 1
+            xs_shifted[:,ii,jj] = xs_unshifted[:,ii,jj]
+        end
+    end
+    Fxs = reshape(Fxs, d, p, Nthetas...)
+
+    # println("xs_unshifted = ")
+    # display(xs_unshifted)
+    # println("xs_shifted = ")
+    # display(xs_shifted)
+    # println("Fxs = ")
+    # display(Fxs)
 
     return Fxs - xs_shifted
 end
