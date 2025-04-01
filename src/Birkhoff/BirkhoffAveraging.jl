@@ -855,7 +855,20 @@ function w0_logposterior(w0::AbstractVector, ws::AbstractVector, h2norms::Abstra
         logposteriors = [w0_logposterior(wgrid[jj], w, h2norms[ii], sqrt(k2grid[jj]), sigma_w, 
                                          r_h, C_h, N_h, h2min) for jj in jjs]
 
+        
+        new_searchwidth=searchwidth
+        while length(logposteriors) == 0 
+            new_searchwidth = 2new_searchwidth
+            jj_closest = search_sorted_freqs(wgrid, w) 
+            jjs = mod1.((-new_searchwidth+jj_closest):(new_searchwidth+jj_closest), Nw)
+            jjs = jjs[.!popped[jjs]]
+
+            logposteriors = [w0_logposterior(wgrid[jj], w, h2norms[ii], sqrt(k2grid[jj]), sigma_w, 
+                                         r_h, C_h, N_h, h2min) for jj in jjs]
+        end
+
         kmax = argmax(logposteriors)
+        # println("ii=$ii, w0=$w0, w=$w, logposterior=$(logposteriors[kmax])")
         logposterior = logposterior + logposteriors[kmax]
         popped[jjs[kmax]] = true
     end
@@ -950,7 +963,7 @@ Output:
 - `logposterior`: The log posterior of the Bayesian determination of w0
 """
 function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Number=1e-7, 
-                Nsearch::Integer=20, Nsearchcutoff::Number=1e-5, gridratio::Number=0., 
+                Nsearch::Integer=20, Nsearchcutoff::Number=1e-6, gridratio::Number=0., 
                 Nkz::Integer=50, sigma_w::Number = 1e-10, rattol::Number = 1e-6, 
                 maxNisland::Number = 10)
     # Get correct default grid ratio
@@ -963,11 +976,13 @@ function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Num
 
     ## Step 1.5: Check if there is a rational rotation number
     H2norms = [real(H'*H) for H in eachrow(coefs)]
+    # println("Nsearch = $Nsearch")
     while (Nsearch >= 2) && ((H2norms[2Nsearch]/H2norms[1]) < Nsearchcutoff) # Make sure that we aren't using garbage
         Nsearch = Nsearch-1
     end
+    # println("Nsearch = $Nsearch")
     _, Nisland = find_rationals(ws[1:2:2Nsearch], maxNisland, rattol)
-
+    
     ## Step 2: Get a candidate value of w0
     N_h = length(coefs[1,:])
     C_h, r_h = SymplecticMapTools.smoothness_estimate(H2norms, Nw0, N_h, Nisland)
@@ -984,10 +999,11 @@ function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Num
 end
 
 function get_w0!(sol::BRREsolution, Nw0::Integer; matchtol::Number=1e-7, 
-    Nsearch::Integer=20, Nsearchcutoff::Number=1e-5, gridratio::Number=0., 
+    Nsearch::Integer=20, Nsearchcutoff::Number=1e-6, gridratio::Number=0., 
     Nkz::Integer=50, sigma_w::Number = 1e-10, rattol::Number = 1e-6, 
     maxNisland::Number = 10)
-    w0, resid = get_w0(sol.hs, sol.c, Nw0; matchtol, Nsearch, gridratio, Nkz, sigma_w)
+    w0, resid = get_w0(sol.hs, sol.c, Nw0; matchtol, Nsearch, gridratio, Nkz, sigma_w,
+                       Nsearchcutoff,rattol,maxNisland)
     
     sol.d = Nw0
     sol.w0 = w0
