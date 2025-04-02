@@ -117,8 +117,8 @@ function kam_residual(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
     return Fxs - xs_shifted
 end
 
-function kam_residual_norm(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
+function kam_residual_rnorm(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
     resid = kam_residual(tor, F, thetavecs)
     N = prod(length.(thetavecs))
-    return norm(resid)/sqrt(N)
+    return norm(resid)/(sqrt(N)*norm(tor.a))
 end
