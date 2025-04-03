@@ -12,8 +12,10 @@ end
 
 Applies Birkhoff vector MPE to a sequence `x_n = x[:, n]`
 """
-function vector_mpe_backslash(x::AbstractArray, K::Integer; ϵ = 0.0, weighted=false)
-    if ϵ != 0.0; println("Warning: vector_mpe_iterative not supported for ϵ!=0.0"); end
+function vector_mpe_backslash(x::AbstractArray, K::Integer; ϵ = 0.0, 
+                              weighted::Bool=false, ortho::Bool=false)
+    if ϵ != 0.0; println("Warning: vector_mpe_backslash not supported for ϵ!=0.0"); end
+    if ortho; println("Warning: vector_mpe_backslash not supported for ortho P"); end
     x = typeof(x) <: AbstractVector ? x' : x
     u = diff(x, dims=2)
     d, L = size(u);
@@ -53,8 +55,10 @@ Arguments:
 - `atol`, `btol`: Tolerances. See `IterativeSolvers.lsqr!`
 """
 function vector_mpe_iterative(x::AbstractArray, K::Integer; atol = 1e-14,
-                              btol = 1e-14, c0 = nothing, ϵ = 0.0, weighted=false)
+                              btol = 1e-14, c0 = nothing, ϵ = 0.0, weighted::Bool=false, 
+                              ortho::Bool=true)
     if ϵ != 0.0; println("Warning: vector_mpe_iterative not supported for ϵ!=0.0"); end
+    if ortho; println("Warning: vector_mpe_iterative not supported for ortho P"); end
     x = typeof(x) <: AbstractVector ? x' : x
     u = diff(x, dims=2)
     d, L = size(u);
@@ -118,8 +122,10 @@ function vector_mpe_iterative_full(x::AbstractArray, K::Integer; atol = 1e-14, b
     return c, sums ,resid, history
 end
 
-function vector_rre_iterative(x::AbstractArray, K::Integer; atol=1e-14, btol=1e-14, ϵ=0.0, weighted=false)
+function vector_rre_iterative(x::AbstractArray, K::Integer; atol=1e-14, btol=1e-14, ϵ=0.0, 
+                              weighted::Bool=false, ortho::Bool=true)
     if ϵ != 0.0; println("Warning: vector_rre_iterative not supported for ϵ!=0.0"); end
+    if ortho; println("Warning: vector_rre_iterative not supported for ortho P"); end
     x = typeof(x) <: AbstractVector ? x' : x
     u = diff(x, dims=2)
     d, L = size(u);
@@ -165,7 +171,8 @@ Output:
 - `resid`: The residuals of the least-squares problem. Taking the
   norm gives an overall measure of the fit.
 """
-function vector_rre_backslash(x::AbstractArray, K::Integer; ϵ=0.0, weighted=false)
+function vector_rre_backslash(x::AbstractArray, K::Integer; ϵ=0.0, weighted::Bool=false, 
+                              ortho::Bool=true)
     x = typeof(x) <: AbstractVector ? x' : x
     u = diff(x, dims=2)
     d, L = size(u);
@@ -175,20 +182,21 @@ function vector_rre_backslash(x::AbstractArray, K::Integer; ϵ=0.0, weighted=fal
     # println("d = $d, M = $M, K = $K")
     @assert (d * M ≥ K)
 
-    P = Matrix(rre_p(K));
+    P = ortho ? Matrix(rre_p_ortho(K)) : Matrix(rre_p(K));
     D = weighted ? wba_weight(d, M) : Diagonal(ones(d*M)./sqrt(M));
     H = BlockHankelMatrix(u[:,1:end-N+1], u[:,end-N+1:end]);
 
     A = D*H*P';
-    b = - D*H[:, K+1];
+    v0 = ones(2K+1) ./ (2K+1)
+    b = ortho ? -D*H*v0  : - D*H[:, K+1] ;
     if ϵ != zero(typeof(ϵ))
         WKinv = sqrt(ϵ)*inv(wba_weight(1, 2K+1))
         A = vcat(A, WKinv*P')
         b = vcat(b, WKinv[:,K+1])
     end
 
-    c = P'*(A\b);
-    c[K+1] += 1;
+    c = P'*(A\b) ;
+    ortho ? c[:] = c+v0 : c[K+1] += 1;
 
     sums, resid = get_sums_and_resid(x,c,D,H)
 

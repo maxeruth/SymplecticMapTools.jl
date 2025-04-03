@@ -240,3 +240,8 @@ function rre_p(K::Integer)
 
     LinearOperator(Float64, M, N, false, false, P_mul!, P_tmul!)
 end
+
+function rre_p_ortho(K::Integer)
+    θ = (-K:K) .* (2π/(2K+1))
+    [cos(n*θj)/sqrt(K+1/2) for n = 1:K, θj in θ] 
+end

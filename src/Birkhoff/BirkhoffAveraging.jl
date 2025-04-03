@@ -231,7 +231,8 @@ thing.
 function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
                                 N::Integer, K::Integer; iterative::Bool=false,
                                 x_prev::Union{AbstractArray,Nothing}=nothing,
-                                rre::Bool=true, ϵ::Number=0.0, weighted::Bool=false)
+                                rre::Bool=true, ϵ::Number=0.0, weighted::Bool=false,
+                                ortho::Bool=true)
     x = deepcopy(x0);
     h0 = h(x);
     D = length(h0);
@@ -264,21 +265,21 @@ function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
 
     if rre
         if iterative
-            c, sums, resid, history = vector_rre_iterative(hs, K; ϵ, weighted)
+            c, sums, resid, history = vector_rre_iterative(hs, K; ϵ, weighted, ortho)
         else
-            c, sums, resid = vector_rre_backslash(hs, K; ϵ, weighted)
+            c, sums, resid = vector_rre_backslash(hs, K; ϵ, weighted, ortho)
         end
     else
         if iterative
-            c, sums, resid, history = vector_mpe_iterative(hs, K; ϵ, weighted)
+            c, sums, resid, history = vector_mpe_iterative(hs, K; ϵ, weighted, ortho)
         else
-            c, sums, resid = vector_mpe_backslash(hs, K; ϵ, weighted)
+            c, sums, resid = vector_mpe_backslash(hs, K; ϵ, weighted, ortho)
         end
     end
 
     h_ave = sums[:,1];
 
-    resid_RRE = ( norm(resid) / sqrt(length(resid)) )/unorm(hs)
+    resid_RRE = norm(resid)/unorm(hs)
 
     BRREsolution(D, F, h, xs, hs, K, c, h_ave, resid_RRE)
 end
@@ -288,7 +289,7 @@ end
     adaptive_birkhoff_extrapolation(h::Function, F::Function,
                     x0::AbstractVector; rtol::Number=1e-10, Kinit = 20,
                     Kmax = 100, Kstride=20, iterative::Bool=false,
-                    Nfactor::Integer=1, rre::Bool=true)
+                    Nfactor::Integer=5, rre::Bool=true)
 
 Adaptively applies `birkhoff_extrapolation` to find a good enough filter length
 `K`, where "good enough" is defined by the `rtol` optional argument.
@@ -323,7 +324,8 @@ Outputs:
 function adaptive_birkhoff_extrapolation(h::Function, F::Function,
                     x0::AbstractVector; rtol::Number=1e-10, Kinit = 20,
                     Kmax = 100, Kstride=20, iterative::Bool=false,
-                    Nfactor::Number=1, rre::Bool=true, ϵ::Number=0.0, weighted::Bool=false)
+                    Nfactor::Number=5, rre::Bool=true, ϵ::Number=0.0, weighted::Bool=false,
+                    ortho::Bool=true)
     #
     d = length(h(x0));
     K = Kinit-Kstride
@@ -336,7 +338,7 @@ function adaptive_birkhoff_extrapolation(h::Function, F::Function,
         K += Kstride;
         N = ceil(Int, 2*Nfactor*K / d);
 
-        sol = birkhoff_extrapolation(h, F, x0, N, K; iterative, x_prev=xs, rre, ϵ, weighted)
+        sol = birkhoff_extrapolation(h, F, x0, N, K; iterative, x_prev=xs, rre, ϵ, weighted, ortho)
         rnorm = sol.resid_RRE
     end
 
@@ -868,7 +870,6 @@ function w0_logposterior(w0::AbstractVector, ws::AbstractVector, h2norms::Abstra
         end
 
         kmax = argmax(logposteriors)
-        # println("ii=$ii, w0=$w0, w=$w, logposterior=$(logposteriors[kmax])")
         logposterior = logposterior + logposteriors[kmax]
         popped[jjs[kmax]] = true
     end
@@ -976,11 +977,9 @@ function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Num
 
     ## Step 1.5: Check if there is a rational rotation number
     H2norms = [real(H'*H) for H in eachrow(coefs)]
-    # println("Nsearch = $Nsearch")
     while (Nsearch >= 2) && ((H2norms[2Nsearch]/H2norms[1]) < Nsearchcutoff) # Make sure that we aren't using garbage
         Nsearch = Nsearch-1
     end
-    # println("Nsearch = $Nsearch")
     _, Nisland = find_rationals(ws[1:2:2Nsearch], maxNisland, rattol)
     
     ## Step 2: Get a candidate value of w0
@@ -1223,11 +1222,6 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
     end
 
     D_pre, N_pre = size(hs)
-    # println("Nisland = $Nisland")
-    # println("N_pre÷Nisland = $(N_pre÷Nisland)")
-    # println("D_pre = $D_pre")
-    # println("N_pre = $N_pre")
-    # display(size(hs[:,1:(N_pre÷Nisland) * Nisland]))
     hs = reshape(hs[:,1:(N_pre÷Nisland) * Nisland], D_pre*Nisland, N_pre÷Nisland) # Reshape to island
     D, N = size(hs)
     
@@ -1340,10 +1334,14 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
     return tor, err_best
 end
 
+# max_size caps the size of linear system we are considering
 function adaptive_get_torus!(sol::BRREsolution; 
+                             max_size::Number=2000,
                              validation_fraction::Number=0.05, ridge_factor::Number=10,
                              eps_ada::Number=1e-8)
-    tor, resid_tor = adaptive_get_torus(sol.w0, sol.hs; validation_fraction, ridge_factor, eps_ada)
+    h_sz_2 = Integer(min(max_size, size(sol.hs,2)))
+    tor, resid_tor = adaptive_get_torus(sol.w0, sol.hs[:,1:h_sz_2]; 
+                                        validation_fraction, ridge_factor, eps_ada)
 
     sol.tor = tor
     sol.resid_tor = resid_tor
