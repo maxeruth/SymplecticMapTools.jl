@@ -925,7 +925,7 @@ function refine_w0(w0::AbstractVector, ws::AbstractVector, coefs::AbstractArray,
     _, A = LLLplus.hkz(U)
     
     new_w0 = copy(w0)
-    v = zeros(2)
+    v = zeros(length(w0)-1)
     v[:] = w0[2:end]
     new_w0[2:end] = mid_mod.(A\v)
     D = Diagonal(Integer.(sign.(new_w0)));
@@ -935,7 +935,7 @@ end
 
 
 """
-    get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Number=1e-7, 
+    get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Number=1, 
                 Nsearch::Integer=20, gridratio::Number=0., Nkz::Integer=50, sigma_w::Number = 1e-10)
 
 Find the rotation vector from an output of Birkhoff RRE.
@@ -944,7 +944,7 @@ Input:
 - `hs`: The observable output from [`adaptive_birkhoff_extrapolation`](@ref)
 - `c`: The filter output from [`adaptive_birkhoff_extrapolation`](@ref)
 - `Nw0`: The dimension of the invariant torus
-- `matchtol=1e-7`: The tolerance at which we determine a frequency is an integer multiple of another 
+- `matchtol=1`: The tolerance at which we determine a frequency is an integer multiple of another 
    frequency for the refinement step. Can be increased/decreased depending on how well resolved `c` 
    is. For instance, if the torus is very complicated or the map is noisy, a larger tolerance may be 
    needed (say 1e-5).
@@ -963,7 +963,7 @@ Output:
   is in elements `w0[2:Nw0+1]`.
 - `logposterior`: The log posterior of the Bayesian determination of w0
 """
-function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Number=1e-7, 
+function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Number=1, 
                 Nsearch::Integer=20, Nsearchcutoff::Number=1e-6, gridratio::Number=0., 
                 Nkz::Integer=50, sigma_w::Number = 1e-10, rattol::Number = 1e-6, 
                 maxNisland::Number = 10)
@@ -997,7 +997,7 @@ function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Num
     return w0, logposterior
 end
 
-function get_w0!(sol::BRREsolution, Nw0::Integer; matchtol::Number=1e-7, 
+function get_w0!(sol::BRREsolution, Nw0::Integer; matchtol::Number=1, 
     Nsearch::Integer=20, Nsearchcutoff::Number=1e-6, gridratio::Number=0., 
     Nkz::Integer=50, sigma_w::Number = 1e-10, rattol::Number = 1e-6, 
     maxNisland::Number = 10)
