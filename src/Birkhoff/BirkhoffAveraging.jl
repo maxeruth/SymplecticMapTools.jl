@@ -999,7 +999,7 @@ end
 
 function get_w0!(sol::BRREsolution, Nw0::Integer; matchtol::Number=1, 
     Nsearch::Integer=30, Nsearchcutoff::Number=1e-6, gridratio::Number=0., 
-    Nkz::Integer=50, sigma_w::Number = 1e-10, rattol::Number = 1e-6, 
+    Nkz::Integer=50, sigma_w::Number = 1e-10, rattol::Number = 1e-8, 
     maxNisland::Number = 10)
     w0, resid = get_w0(sol.hs, sol.c, Nw0; matchtol, Nsearch, gridratio, Nkz, sigma_w,
                        Nsearchcutoff,rattol,maxNisland)
