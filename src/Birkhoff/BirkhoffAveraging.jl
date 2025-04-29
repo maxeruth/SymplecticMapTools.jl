@@ -34,7 +34,7 @@ function weighted_birkhoff_average(hs::AbstractMatrix)
     N = size(hs, 2)
     t = (1:N) ./ (N+1);
     w = exp.(- 1 ./ ( t .* (1 .- t)))
-    return (hs*w) ./ sum(w)
+    return [sum(row.*w) for row in eachrow(hs)]  ./ sum(w)
 end
 
 """
@@ -43,7 +43,7 @@ end
 Finds a weighted Birkhoff average of a sequence of scalar observations.
 """
 function weighted_birkhoff_average(hs::AbstractVector)
-    weighted_birkhoff_average(hs')
+    weighted_birkhoff_average(hs')[1]
 end
 
 
@@ -936,7 +936,7 @@ end
 
 """
     get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Number=1, 
-                Nsearch::Integer=20, gridratio::Number=0., Nkz::Integer=50, sigma_w::Number = 1e-10)
+                Nsearch::Integer=30, gridratio::Number=0., Nkz::Integer=50, sigma_w::Number = 1e-10)
 
 Find the rotation vector from an output of Birkhoff RRE.
 
@@ -964,12 +964,12 @@ Output:
 - `logposterior`: The log posterior of the Bayesian determination of w0
 """
 function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Number=1, 
-                Nsearch::Integer=20, Nsearchcutoff::Number=1e-6, gridratio::Number=0., 
+                Nsearch::Integer=30, Nsearchcutoff::Number=1e-6, gridratio::Number=0., 
                 Nkz::Integer=50, sigma_w::Number = 1e-10, rattol::Number = 1e-6, 
                 maxNisland::Number = 10)
     # Get correct default grid ratio
     if gridratio==0.
-        gridratio = (Nw0 == 1) ? 2. : 10.
+        gridratio = (Nw0 == 1) ? 2. : 5.
     end
 
     ## Step 1: Get the roots sorted by the value of coefs
@@ -998,7 +998,7 @@ function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Num
 end
 
 function get_w0!(sol::BRREsolution, Nw0::Integer; matchtol::Number=1, 
-    Nsearch::Integer=20, Nsearchcutoff::Number=1e-6, gridratio::Number=0., 
+    Nsearch::Integer=30, Nsearchcutoff::Number=1e-6, gridratio::Number=0., 
     Nkz::Integer=50, sigma_w::Number = 1e-10, rattol::Number = 1e-6, 
     maxNisland::Number = 10)
     w0, resid = get_w0(sol.hs, sol.c, Nw0; matchtol, Nsearch, gridratio, Nkz, sigma_w,
@@ -1193,13 +1193,10 @@ function get_update_matrix(w0::AbstractVector, N::Number, n::Number, sz::Abstrac
     A, ks
 end
 
-function get_torus_err(B_val::AbstractArray, QR::AdaptiveQR, eps_ada::Number, ks_bank::AbstractArray)
+function get_torus_err(B_val::AbstractArray, QR::AdaptiveQR)
     X = get_X(QR)
     A_val = get_A_val(QR)
-    
-    v = A_val * X - B_val
-    knorms = [sqrt(col'col + 1) for col in eachcol(@view ks_bank[:,get_kinds(QR)])]
-    sqrt(norm(v)^2 + eps_ada*norm(Diagonal(knorms)*X)^2)
+    norm(A_val * X - B_val) 
 end
 
 
@@ -1208,7 +1205,7 @@ end
 # """
 function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix; 
                             validation_fraction::Number=0.05, ridge_factor::Number=10,
-                            eps_ada::Number=1e-8)
+                            max_size::Number=2000)
     
     # Preprocess for an island
     Nisland = 1
@@ -1258,7 +1255,7 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
     end
 
     dir_best = 1;
-    err_best = get_torus_err(B_val, QRs[dir_best], eps_ada, ks_bank) / err_den
+    err_best = get_torus_err(B_val, QRs[dir_best]) / err_den
     M_best   = 1;
 
     Lmode = size(mode_bank,2);
@@ -1273,17 +1270,30 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
         for jj = 1:Nw0
             kind_update = update_inds((@view ks_bank[:,1:Lmode]), get_kinds(QRs[jj]), sz, jj)
             
-            if length(kind_update)+QRs[jj].M > N_train
+            if length(kind_update)+QRs[jj].M > min(N_train, max_size) # Never solve a least squares problem too large
                 err_candidates[jj] = Inf
             else
                 @views update!(QRs[jj],(mode_bank[ind_train,kind_update]), kind_update, mode_bank[ind_val, kind_update])
                 solve!(QRs[jj], B_train)
-                err_candidates[jj] = get_torus_err(B_val, QRs[jj], eps_ada, ks_bank)/err_den
+                err_candidates[jj] = get_torus_err(B_val, QRs[jj])/err_den
             end
         end
         
         # Update in the best direction or break
-        dir = argmin(err_candidates)
+        dir = 0
+        min_sz = 3;
+        if minimum(sz) < min_sz # We want to make sure we end up with at least a 3x3x... resolution
+            dir = length(sz)
+            while sz[dir] >= min_sz
+                dir = dir - 1
+            end
+            if err_candidates[dir] != Inf
+                err_best = err_candidates[dir]*2
+            end
+        else
+            dir = argmin(err_candidates)
+        end
+        
         err_dir = err_candidates[dir]
         if err_dir < ridge_factor*err_best
             # If this is the best we've seen, update best values
@@ -1293,7 +1303,7 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
                 M_best   = QRs[dir].M
             end
 
-            # Either way, we take a next stpe
+            # Either way, we take a next step
             mode_next, ks_next = get_update_matrix(w0,N,dir,sz .+ 1)
 
             Lnext = size(mode_next,2)
@@ -1334,14 +1344,12 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
     return tor, err_best
 end
 
-# max_size caps the size of linear system we are considering
+# max_size caps the width of linear system we are considering
 function adaptive_get_torus!(sol::BRREsolution; 
                              max_size::Number=2000,
-                             validation_fraction::Number=0.05, ridge_factor::Number=10,
-                             eps_ada::Number=1e-8)
-    h_sz_2 = Integer(min(max_size, size(sol.hs,2)))
-    tor, resid_tor = adaptive_get_torus(sol.w0, sol.hs[:,1:h_sz_2]; 
-                                        validation_fraction, ridge_factor, eps_ada)
+                             validation_fraction::Number=0.05, ridge_factor::Number=10)
+    tor, resid_tor = adaptive_get_torus(sol.w0, sol.hs; 
+                                        validation_fraction, ridge_factor, max_size)
 
     sol.tor = tor
     sol.resid_tor = resid_tor
