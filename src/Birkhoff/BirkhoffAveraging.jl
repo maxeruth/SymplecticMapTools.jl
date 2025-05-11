@@ -246,7 +246,7 @@ function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
     hs[:, 1] = h0;
     xs[:, 1] = x;
     ii_init = 2;
-    if x_prev != nothing
+    if x_prev !== nothing
         N_prev = size(x_prev, 2)
         xs[:, 1:N_prev] = x_prev;
         for ii = 1:N_prev
@@ -256,13 +256,13 @@ function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
     end
     x = xs[:, ii_init-1]
 
+    
     for ii = ii_init:Nx
-        x = F(x);
-        hs[:,ii] = h(x)
-        xs[:,ii] = x;
+        xs[:,ii] = F(xs[:,ii-1]);
+        hs[:,ii] = h(xs[:,ii])
     end
     history = 0
-
+    
     if rre
         if iterative
             c, sums, resid, history = vector_rre_iterative(hs, K; ϵ, weighted, ortho)
@@ -339,6 +339,7 @@ function adaptive_birkhoff_extrapolation(h::Function, F::Function,
         N = ceil(Int, 2*Nfactor*K / d);
 
         sol = birkhoff_extrapolation(h, F, x0, N, K; iterative, x_prev=xs, rre, ϵ, weighted, ortho)
+        xs = sol.xs
         rnorm = sol.resid_RRE
     end
 
@@ -647,7 +648,7 @@ function get_wk2_grid(w0::AbstractVector, Ngrids::AbstractVector)
 
         grid = [mid_mod(x + y) for x in grid_ld, y in grid_d][:]
         k2grid = vec([k1 + k2 for k1 in k2grid_ld, k2 in k2grid_d])
-
+        
         ind = sortperm(grid)
         return grid[ind], k2grid[ind]
     end
@@ -985,7 +986,7 @@ function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Num
     ## Step 2: Get a candidate value of w0
     N_h = length(coefs[1,:])
     C_h, r_h = SymplecticMapTools.smoothness_estimate(H2norms, Nw0, N_h, Nisland)
-    Ngrids = vcat([Nisland], floor(Integer, sqrt(2Nsearch)*gridratio) .* ones(Integer, Nw0))
+    Ngrids = vcat([Nisland], floor(Integer, (2. * Nsearch)^(1/Nw0) * gridratio) .* ones(Integer, Nw0))
     w0, logposterior = initial_w0(ws[1:2:2Nsearch], H2norms[1:2:2Nsearch], Nw0, Nisland, sigma_w, 
                                   r_h, C_h, N_h, Ngrids)
 
