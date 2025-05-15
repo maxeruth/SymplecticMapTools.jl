@@ -17,9 +17,9 @@ algorithms that you would like to see added, pull requests are welcome!
 
 The implemented algorithms in this package include
 1. The Birkhoff extrapolation method for finding invariant tori [1,2]
-2. The reproducing kernel Hilbert space based invariant level-set finding method [2]
+2. The reproducing kernel Hilbert space based invariant level-set finding method [3]
 3. The implementations of the parameterization method for finding invariant
-   circles and connecting orbits (see, e.g., [3] for an introduction to the
+   circles and connecting orbits (see, e.g., [4] for an introduction to the
    parameterization method)
 4. Newton's method with line search and BFGS for finding periodic orbits
 Examples of how to use the code are found in `examples/`. These examples are
