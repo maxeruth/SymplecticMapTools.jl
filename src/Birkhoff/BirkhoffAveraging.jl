@@ -34,7 +34,7 @@ function weighted_birkhoff_average(hs::AbstractMatrix)
     N = size(hs, 2)
     t = (1:N) ./ (N+1);
     w = exp.(- 1 ./ ( t .* (1 .- t)))
-    return [sum(row.*w) for row in eachrow(hs)]  ./ sum(w)
+    return [sum(row.*w) for row in eachrow(hs)]  ./ sum(w) # This should work well with floating point 
 end
 
 """
@@ -122,6 +122,34 @@ function doubling_birkhoff_average(h::Function, F::Function, x0::AbstractVector;
     return ave, xs, hs, false
 end
 
+"""
+    mutable struct BRREsolution
+
+See also: [`adaptive_birkhoff_extrapolation`](@ref)), [`birkhoff_extrapolation`](@ref), 
+[`get_w0!`](@ref), [`adaptive_get_torus!`](@ref), [`save_rre`](@ref), [`load_rre`](@ref)
+
+The solution object for the Birkhoff RRE Framework. Contains:
+
+[`adaptive_birkhoff_extrapolation`](@ref)) and [`birkhoff_extrapolation`](@ref) output:
+    - `h`: Observable function (not included in save and load)
+    - `F`: Symplectic map, assumed to act from R^n -> R^n for some n (not included in save and load)
+    - `D`: Output dimension of observable
+    - `xs`: Trajectory used of points in phase space
+    - `hs`: Trajectory of observables 
+    - `K`: Number of Birkhoff RRE filter unknowns
+    - `c`: Filter coefficients
+    - `h_ave`: Birkhoff average
+    - `resid_rre`: Reduced Rank Extrapolation residual
+
+[`get_w0!`](@ref) output:
+    - `d`: Torus dimension
+    - `w0`: Rotation vector (of form `[1//p, w1, ..., wd]`, where p is the island period)
+    - `resid_w0`: Log posterior residual for rotation vector
+
+[`adaptive_get_torus!`](@ref) output:
+    - `tor`: The output [`FourierTorus`](@ref) object
+    - `resid_tor`: The validation residual for the torus
+"""
 mutable struct BRREsolution
     D::Integer  # Observation Function Dimension
     F::Function # Evaluation Function
@@ -133,7 +161,7 @@ mutable struct BRREsolution
     K::Integer            # No. Filter Unknowns
     c::AbstractVector     # Filter Coefficients
     h_ave::AbstractVector # Birkhoff Average
-    resid_RRE::Number     # RRE Residual
+    resid_rre::Number     # RRE Residual
 
     d::Integer         # Torus Dimension
     w0::AbstractVector # Rotation Vector
@@ -144,7 +172,7 @@ mutable struct BRREsolution
 
     function BRREsolution(D::Integer, F::Function, h::Function, xs::AbstractArray, 
                           hs::AbstractArray, K::Integer, c::AbstractVector, h_ave::AbstractVector, 
-                          resid_RRE::Number)
+                          resid_rre::Number)
         d = 0;
         w0 = Float64[];
         resid_w0 = Inf;
@@ -152,16 +180,15 @@ mutable struct BRREsolution
         tor = FourierTorus(D,ones(Integer,d))
         resid_tor = Inf;
 
-        new(D,F,h,xs,hs,K,c,h_ave,resid_RRE,d,w0,resid_w0,tor,resid_tor)
+        new(D,F,h,xs,hs,K,c,h_ave,resid_rre,d,w0,resid_w0,tor,resid_tor)
     end
 end
 
 """
     save_rre(file::AbstractString, sol::BRREsolution)
 
-Save an RRE solution object to a file (not including the evaluation and observation
-function `F` and `h`). Currently saves using JLD2, but could be 
-extended in the future.
+Save an RRE solution object to a file (not including the evaluation and observation function `F` and
+`h`). Currently only saves to JLD2 files.
 """
 function save_rre(file::AbstractString, sol::BRREsolution)
     D = sol.D
@@ -170,7 +197,7 @@ function save_rre(file::AbstractString, sol::BRREsolution)
     K = sol.K
     c = sol.c
     h_ave = sol.h_ave
-    resid_RRE = sol.resid_RRE
+    resid_rre = sol.resid_rre
     d = sol.d
     w0 = sol.w0
     resid_w0 = sol.resid_w0
@@ -181,18 +208,18 @@ function save_rre(file::AbstractString, sol::BRREsolution)
     tor_τ = tor.τ
     tor_d, tor_p, tor_Na = tor.sz
 
-    @save file D xs hs K c h_ave resid_RRE d w0 resid_w0 resid_tor tor_a tor_τ tor_d tor_p tor_Na
+    @save file D xs hs K c h_ave resid_rre d w0 resid_w0 resid_tor tor_a tor_τ tor_d tor_p tor_Na
 end
  
 """
-    load_rre(file::AbstractString, sol::BRREsolution)
+    load_rre(file::AbstractString)
 
-Load an RRE solution object from a file (saved by `save_rre`). 
+Load an RRE solution object from a file (saved by [`save_rre`](@ref)). 
 """
 function load_rre(file::AbstractString)
-    @load file D xs hs K c h_ave resid_RRE d w0 resid_w0 resid_tor tor_a tor_τ tor_d tor_p tor_Na
+    @load file D xs hs K c h_ave resid_rre d w0 resid_w0 resid_tor tor_a tor_τ tor_d tor_p tor_Na
     tor = FourierTorus(tor_d, tor_Na; a=tor_a, p=tor_p, τ=tor_τ)
-    sol = BRREsolution(D, (x)->nothing, (x)->nothing, xs, hs, K, c, h_ave, resid_RRE)
+    sol = BRREsolution(D, (x)->nothing, (x)->nothing, xs, hs, K, c, h_ave, resid_rre)
     sol.d = d
     sol.w0 = w0
     sol.resid_w0 = resid_w0
@@ -211,9 +238,9 @@ end
 
 """
     birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
-                           N::Integer, K::Integer; iterative::Bool=false,
+                           N::Integer, K::Integer; 
                            x_prev::Union{AbstractArray,Nothing}=nothing,
-                           rre::Bool=false, weighted::Bool=false)
+                           weighted::Bool=false)
 
 As input, takes an initial point `x0`, a symplectic map `F`, and an observable
 `h` (can choose the identity as a default `h = (x)->x`). Then, the method
@@ -222,16 +249,14 @@ As input, takes an initial point `x0`, a symplectic map `F`, and an observable
 3. Performs sequence extrapolation (RRE or MPE) on hs to obtain a model `c` of
     length `2K+1` (with `K` unknowns), the extrapolated value applied to each
     window, and a residual
-4. Returns as `c, sums, resid, xs, hs[, history]` where `history` is a
-    diagnostic from the iterative solver that only returns when `iterative=true`
+4. Returns a `BRREsolution` object
 
-Use `x_prev` if you already know part of the sequence, but do not know the whole
-thing.
+Use `x_prev` if you already know part of the sequence, but do not know the whole thing.
 """
 function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
-                                N::Integer, K::Integer; iterative::Bool=false,
+                                N::Integer, K::Integer; 
                                 x_prev::Union{AbstractArray,Nothing}=nothing,
-                                rre::Bool=true, ϵ::Number=0.0, weighted::Bool=false,
+                                ϵ::Number=0.0, weighted::Bool=false,
                                 ortho::Bool=true)
     x = deepcopy(x0);
     h0 = h(x);
@@ -261,71 +286,42 @@ function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
         xs[:,ii] = F(xs[:,ii-1]);
         hs[:,ii] = h(xs[:,ii])
     end
-    history = 0
-    
-    if rre
-        if iterative
-            c, sums, resid, history = vector_rre_iterative(hs, K; ϵ, weighted, ortho)
-        else
-            c, sums, resid = vector_rre_backslash(hs, K; ϵ, weighted, ortho)
-        end
-    else
-        if iterative
-            c, sums, resid, history = vector_mpe_iterative(hs, K; ϵ, weighted, ortho)
-        else
-            c, sums, resid = vector_mpe_backslash(hs, K; ϵ, weighted, ortho)
-        end
-    end
+
+    c, sums, resid = vector_rre_backslash(hs, K; ϵ, weighted, ortho)
 
     h_ave = sums[:,1];
 
-    resid_RRE = norm(resid)/unorm(hs)
+    resid_rre = norm(resid)/unorm(hs)
 
-    BRREsolution(D, F, h, xs, hs, K, c, h_ave, resid_RRE)
+    BRREsolution(D, F, h, xs, hs, K, c, h_ave, resid_rre)
 end
 
 
 """
     adaptive_birkhoff_extrapolation(h::Function, F::Function,
                     x0::AbstractVector; rtol::Number=1e-10, Kinit = 20,
-                    Kmax = 100, Kstride=20, iterative::Bool=false,
-                    Nfactor::Integer=5, rre::Bool=true)
+                    Kmax = 100, Kstride=20, Nfactor::Integer=5)
 
-Adaptively applies `birkhoff_extrapolation` to find a good enough filter length
-`K`, where "good enough" is defined by the `rtol` optional argument.
+Adaptively applies `birkhoff_extrapolation` to find a good enough filter length `K`, where "good 
+enough" is defined by the `rtol` optional argument.
 
 Arguments:
 - `h`: The observable function (often the identity function `h = (x)->x` works)
 - `F`: The symplectic map
 - `x0`: The initial point of the trajectory
-- `rtol`: Required tolerance for convergence (inexact maps often require a
-  looser tolerance)
-- `Kinit`: The length of the initial filter
-- `Kmax`: The maximum allowed filter size
-- `Kstride`: The amount `K` increases between applications of
-             `birkhoff_extrapolation`
-- `iterative`: Whether to use an iterative method to solve the Hankel system
-               in the extrapolation step
-- `Nfactor`: How rectangular the extrapolation algorithm is. Must be >=1.
-- `rre`: Turn to true to use reduced rank extrapolation instead of minimal
-         polynomial extrapolation.
+- `Kinit`, `Kmax`, `Kstride`: Increases filter size `K` as `Kinit:Kstride:Kmax`. For more 
+  complicated and higher dimensional tori, typically it is better to increase these values.
+- `rtol`: Required tolerance for convergence (lower is better; inexact maps often require a looser 
+  tolerance)
+- `Nfactor`: How rectangular the extrapolation least-squares problem is. Must be >=1.
 
 Outputs:
-- `c`: Linear model / filter
-- `sums`: The extrapolated value applied to each window
-- `resid`: The least squares residual
-- `xs`: A time series `x[:,n] = Fⁿ(x[:,0])`
-- `hs`: The observations `h[:,n] = h(x[:,n])`
-- `rnorm`: The norm of resid
-- `K`: The final degree of the filter
-- `history`: Returned if `iterative=true`. The history of the final LSQR
-  iteration
+- `sol`: A [`BRREsolution`](@ref) object
 """
-function adaptive_birkhoff_extrapolation(h::Function, F::Function,
-                    x0::AbstractVector; rtol::Number=1e-10, Kinit = 20,
-                    Kmax = 100, Kstride=20, iterative::Bool=false,
-                    Nfactor::Number=5, rre::Bool=true, ϵ::Number=0.0, weighted::Bool=false,
-                    ortho::Bool=true)
+function adaptive_birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector; 
+                                         rtol::Number=1e-10, Kinit = 100, Kmax = 500, Kstride=200,
+                                         Nfactor::Number=5, ϵ::Number=0.0, weighted::Bool=false, 
+                                         ortho::Bool=true)
     #
     d = length(h(x0));
     K = Kinit-Kstride
@@ -338,9 +334,9 @@ function adaptive_birkhoff_extrapolation(h::Function, F::Function,
         K += Kstride;
         N = ceil(Int, 2*Nfactor*K / d);
 
-        sol = birkhoff_extrapolation(h, F, x0, N, K; iterative, x_prev=xs, rre, ϵ, weighted, ortho)
+        sol = birkhoff_extrapolation(h, F, x0, N, K; x_prev=xs, ϵ, weighted, ortho)
         xs = sol.xs
-        rnorm = sol.resid_RRE
+        rnorm = sol.resid_rre
     end
 
     return sol
@@ -349,7 +345,7 @@ end
 """
     sum_stats(sums)
 
-Given a sequence of sums applied to a filter (an output of invariant circle
+Given a sequence of sums applied to a filter (an output of Birkhoff RRE
 extrapolation), find the average and standard deviation of the sums. Can be used
 as a measure of how "good" the filter is.
 """
@@ -818,7 +814,6 @@ end
 
 function w0_logposterior(w0::Number, w::Number, h2norm::Number, magk::Number, 
                          sigma_w::Number, r_h::Number, C_h::Number, Nh::Integer, h2min::Number)
-    
     # As always, the w0=1/2 case is sensitive
     if w0 == 1/2
         sigma_w = sqrt(sigma_w)
@@ -840,7 +835,7 @@ function w0_logposterior(w0::Number, w::Number, h2norm::Number, magk::Number,
 end
 
 function w0_logposterior(w0::AbstractVector, ws::AbstractVector, h2norms::AbstractVector, 
-                         sigma_w::Number, C_h::Number, r_h::Number, N_h::Number, 
+                         sigma_w::Number, r_h::Number, C_h::Number, N_h::Number, 
                          Ngrids::AbstractVector, searchwidth::Number)
     wgrid, k2grid = get_wk2_grid(w0, Ngrids)
     logposterior = 0.
@@ -935,36 +930,8 @@ function refine_w0(w0::AbstractVector, ws::AbstractVector, coefs::AbstractArray,
 end
 
 
-"""
-    get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Number=1, 
-                Nsearch::Integer=30, gridratio::Number=0., Nkz::Integer=50, sigma_w::Number = 1e-10)
 
-Find the rotation vector from an output of Birkhoff RRE.
-
-Input: 
-- `hs`: The observable output from [`adaptive_birkhoff_extrapolation`](@ref)
-- `c`: The filter output from [`adaptive_birkhoff_extrapolation`](@ref)
-- `Nw0`: The dimension of the invariant torus
-- `matchtol=1`: The tolerance at which we determine a frequency is an integer multiple of another 
-   frequency for the refinement step. Can be increased/decreased depending on how well resolved `c` 
-   is. For instance, if the torus is very complicated or the map is noisy, a larger tolerance may be 
-   needed (say 1e-5).
-- `(Nsearch,gridratio)=(20,0.)`: `Nsearch` is the number of independent roots of `c` (i.e. ±ω are the 
-   same root) that we consider for choosing ω0. `gridratio` is gives the size of grid we use for the
-   discrete optimization to find ω0. If the torus is dominated by higher harmonics, then one or both
-   of these parameters may need to be increased. The default values (chosen by `gridratio==0.`)
-   are `2.` for the 1D case and `1.` for greater than 1D.
-- `Nkz=100`: Number of frequencies to use for finding the KZ basis. This value likely does not need
-  to be tuned by the user.
-- `sigma_w`: Frequency accuracy used in the Bayesian inference
-
-Output:
-- `w0`: The rotation vector. In the case of an invariant torus, is is of length `Nw0`. In the case 
-  of an island, it is of length `Nw0+1`, where the first entry is rational and the rotation vector 
-  is in elements `w0[2:Nw0+1]`.
-- `logposterior`: The log posterior of the Bayesian determination of w0
-"""
-function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Number=1, 
+function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; 
                 Nsearch::Integer=30, Nsearchcutoff::Number=1e-6, gridratio::Number=0., 
                 Nkz::Integer=50, sigma_w::Number = 1e-10, rattol::Number = 1e-6, 
                 maxNisland::Number = 10)
@@ -978,7 +945,11 @@ function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Num
 
     ## Step 1.5: Check if there is a rational rotation number
     H2norms = [real(H'*H) for H in eachrow(coefs)]
-    while (Nsearch >= 2) && ((H2norms[2Nsearch]/H2norms[1]) < Nsearchcutoff) # Make sure that we aren't using garbage
+    if 2Nsearch > length(H2norms)
+        Nsearch = length(H2norms)÷2
+    end
+
+    while (Nsearch >= Nw0+1) && ((H2norms[2Nsearch]/H2norms[1]) < Nsearchcutoff) # Make sure that we aren't using garbage
         Nsearch = Nsearch-1
     end
     _, Nisland = find_rationals(ws[1:2:2Nsearch], maxNisland, rattol)
@@ -991,6 +962,7 @@ function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Num
                                   r_h, C_h, N_h, Ngrids)
 
     ## Step 3: Find the optimal rotation vector by KZ basis
+    matchtol = 1.
     Nkz = min(Nkz,size(coefs,1)÷4)
     coef_norms = [norm(row) for row in eachrow(coefs[1:2Nkz,:])]
     w0 = refine_w0(w0, ws[1:2Nkz], coef_norms, matchtol, gridratio)
@@ -998,11 +970,34 @@ function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number; matchtol::Num
     return w0, logposterior
 end
 
-function get_w0!(sol::BRREsolution, Nw0::Integer; matchtol::Number=1, 
-    Nsearch::Integer=30, Nsearchcutoff::Number=1e-6, gridratio::Number=0., 
-    Nkz::Integer=50, sigma_w::Number = 1e-10, rattol::Number = 1e-8, 
-    maxNisland::Number = 10)
-    w0, resid = get_w0(sol.hs, sol.c, Nw0; matchtol, Nsearch, gridratio, Nkz, sigma_w,
+
+"""
+    get_w0!(sol::BRREsolution, Nw0::Integer; Nsearch::Integer=30, Nsearchcutoff::Number=1e-6, 
+        gridratio::Number=0., Nkz::Integer=50, sigma_w::Number = 1e-10, rattol::Number = 1e-8, 
+        maxNisland::Number = 10)
+
+Find the rotation vector from an output of Birkhoff RRE. 
+Stores the output in the input `sol` object.
+
+Input: 
+- `sol`: The output of a Birkhoff RRE extrapolation
+- `Nw0`: The dimension of the torus
+- `(Nsearch,gridratio)`: `Nsearch` is the number of independent roots of `c` (i.e. ±ω are the 
+   same root) that we consider for choosing ω0. `gridratio` gives the size of grid we use for the
+   discrete optimization to find ω0. If the torus is dominated by higher harmonics, then one or both
+   of these parameters may need to be increased. The default values (chosen by `gridratio==0.`)
+   are `2` for the 1D case and `5` for greater than 1D.
+- `sigma_w`: Frequency accuracy used in the Bayesian inference
+- `Nsearchcutoff`: The cutoff prominence of the Fourier modes used to put a maximum on `Nsearch`. 
+  Lowering this value may result in a rotation vector when otherwise it was not found, but it may 
+  reduce accuracy.
+- `Nkz=50`: Number of frequencies to use for finding the KZ basis. This value likely does not need
+  to be tuned by the user.
+"""
+function get_w0!(sol::BRREsolution, Nw0::Integer; Nsearch::Integer=30, Nsearchcutoff::Number=1e-6, 
+                 gridratio::Number=0., Nkz::Integer=50, sigma_w::Number = 1e-10, 
+                 rattol::Number = 1e-8, maxNisland::Number = 10)
+    w0, resid = get_w0(sol.hs, sol.c, Nw0; Nsearch, gridratio, Nkz, sigma_w,
                        Nsearchcutoff,rattol,maxNisland)
     
     sol.d = Nw0
@@ -1201,9 +1196,6 @@ function get_torus_err(B_val::AbstractArray, QR::AdaptiveQR)
 end
 
 
-# """
-    
-# """
 function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix; 
                             validation_fraction::Number=0.05, ridge_factor::Number=10,
                             max_size::Number=2000)
@@ -1284,10 +1276,8 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
         dir = 0
         min_sz = 3;
         if minimum(sz) < min_sz # We want to make sure we end up with at least a 3x3x... resolution
-            dir = length(sz)
-            while sz[dir] >= min_sz
-                dir = dir - 1
-            end
+            dir = argmin(sz)
+
             if err_candidates[dir] != Inf
                 err_best = err_candidates[dir]*2
             end
@@ -1345,9 +1335,22 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
     return tor, err_best
 end
 
-# max_size caps the width of linear system we are considering
-function adaptive_get_torus!(sol::BRREsolution; 
-                             max_size::Number=2000,
+"""
+    adaptive_get_torus!(sol::BRREsolution; max_size::Number=2000, validation_fraction::Number=0.05, 
+                        ridge_factor::Number=10)
+
+Fit an invariant torus from a trajectory. The output is saved to the `sol` input.  See 
+[`kam_residual`](@ref) for an a posteriori validation of the circle.
+
+Inputs:
+- `sol`: An input [`BRREsolution`](@ref) object. It is assumed that the rotation vector has already
+  been computed using [`get_w0!`](@ref).
+- `max_size`: Maximum number of Fourier modes to use for the torus parameterization
+- `validation_fraction`: Fraction of the trajectory which is used for computing the validation error 
+  of the trajectory.
+- `ridge_factor`: Height of the ridges that the discrete gradient descent optimization can traverse.
+"""
+function adaptive_get_torus!(sol::BRREsolution; max_size::Number=2000,
                              validation_fraction::Number=0.05, ridge_factor::Number=10)
     tor, resid_tor = adaptive_get_torus(sol.w0, sol.hs; 
                                         validation_fraction, ridge_factor, max_size)
@@ -1357,71 +1360,71 @@ function adaptive_get_torus!(sol::BRREsolution;
 end
 
 
-"""
-    get_torus(w0::AbstractVector, hs::AbstractArray, ws::AbstractVector, coefs::AbstractArray;
-                   coef_cutoff::Number = 1e-6, tol::Number=1e-9, gridratio::Number=10., 
-                   validation_fraction::Number=0.05)
+# """
+#     get_torus(w0::AbstractVector, hs::AbstractArray, ws::AbstractVector, coefs::AbstractArray;
+#                    coef_cutoff::Number = 1e-6, tol::Number=1e-9, gridratio::Number=10., 
+#                    validation_fraction::Number=0.05)
 
-Project a sequence of observables onto an `InvariantTorus`. To handle potential scale separation 
-between dimensions (long thin tori), the outputs ws and coefs
+# Project a sequence of observables onto an `InvariantTorus`. To handle potential scale separation 
+# between dimensions (long thin tori), the outputs ws and coefs
 
-Input:
-- `w0`: The rotation vector, likely obtained via [`get_w0`](@ref)
-- `hs`: The sequence of observables, likely taken from [`adaptive_birkhoff_extrapolation`](@ref)
-- `ws`: The rotation number roots returned from [`get_w0`](@ref)
-- `coefs`: The projected inner product coefficients from [`get_w0`](@ref)
-- `coef_cutoff=1e-6`
-"""
-function get_torus(w0::AbstractVector, hs::AbstractArray, ws::AbstractVector, coefs::AbstractArray;
-                   coef_cutoff::Number = 1e-6, tol::Number=1e-9, gridratio::Number=10., 
-                   validation_fraction::Number=0.05)
-    N = size(hs, 2)
+# Input:
+# - `w0`: The rotation vector, likely obtained via [`get_w0!`](@ref)
+# - `hs`: The sequence of observables, likely taken from [`adaptive_birkhoff_extrapolation`](@ref)
+# - `ws`: The rotation number roots returned from [`get_w0!`](@ref)
+# - `coefs`: The projected inner product coefficients from [`get_w0`](@ref)
+# - `coef_cutoff=1e-6`
+# """
+# function get_torus(w0::AbstractVector, hs::AbstractArray, ws::AbstractVector, coefs::AbstractArray;
+#                    coef_cutoff::Number = 1e-6, tol::Number=1e-9, gridratio::Number=10., 
+#                    validation_fraction::Number=0.05)
+#     N = size(hs, 2)
     
-    ## Step 1: Estimate the maximum number of modes in each direction
-    coef_norms = [norm(x) for x in eachrow(coefs)]
-    abs_cutoff = coef_cutoff * (norm(coef_norms) / sqrt(length(coef_norms)))
-    N_est = sum(coef_norms .> abs_cutoff)
-    N_est = 2*(N_est÷2)
+#     ## Step 1: Estimate the maximum number of modes in each direction
+#     coef_norms = [norm(x) for x in eachrow(coefs)]
+#     abs_cutoff = coef_cutoff * (norm(coef_norms) / sqrt(length(coef_norms)))
+#     N_est = sum(coef_norms .> abs_cutoff)
+#     N_est = 2*(N_est÷2)
     
-    Ngrids = floor(Integer,gridratio*sqrt(N_est/2)) * ones(Integer,length(w0))
-    wgrid, kgrid = get_wk_grid(w0, Ngrids)
-    nearest = [search_sorted_freqs(wgrid, w) for w in ws[1:N_est]]
-    matches = [abs(mid_mod(ws[ii]-wgrid[nearest[ii]]))<tol for ii = 1:N_est]
+#     Ngrids = floor(Integer,gridratio*sqrt(N_est/2)) * ones(Integer,length(w0))
+#     wgrid, kgrid = get_wk_grid(w0, Ngrids)
+#     nearest = [search_sorted_freqs(wgrid, w) for w in ws[1:N_est]]
+#     matches = [abs(mid_mod(ws[ii]-wgrid[nearest[ii]]))<tol for ii = 1:N_est]
     
-    ks = kgrid[:, nearest[matches]]
-    Nks = [maximum(abs.(row)) for row in eachrow(ks)]
+#     ks = kgrid[:, nearest[matches]]
+#     Nks = [maximum(abs.(row)) for row in eachrow(ks)]
 
-    ## Step 2: Project `hs` onto the modes
+#     ## Step 2: Project `hs` onto the modes
     
-    # Get modenumbers
-    ks = zeros(Integer, length(Nks),prod(2 .* Nks .+ 1))
-    cart = CartesianIndices(Tuple([-Nk:Nk for Nk in Nks]))
-    for ii = 1:length(Nks), jj in 1:prod(2 .* Nks .+ 1)
-        ks[:,jj].=Tuple(cart[jj])
-    end
+#     # Get modenumbers
+#     ks = zeros(Integer, length(Nks),prod(2 .* Nks .+ 1))
+#     cart = CartesianIndices(Tuple([-Nk:Nk for Nk in Nks]))
+#     for ii = 1:length(Nks), jj in 1:prod(2 .* Nks .+ 1)
+#         ks[:,jj].=Tuple(cart[jj])
+#     end
 
-    # Get modes
-    fs = (2π*im) .* (ks'*w0)
-    modes = [exp(f*t) for t in 0:N-1, f in fs]
+#     # Get modes
+#     fs = (2π*im) .* (ks'*w0)
+#     modes = [exp(f*t) for t in 0:N-1, f in fs]
 
-    # Project onto training data and get validation error
-    N_val = ceil(Integer, validation_fraction*N)
+#     # Project onto training data and get validation error
+#     N_val = ceil(Integer, validation_fraction*N)
     
-    ind_train = 1:N-N_val
-    ind_val = N-N_val+1:N
+#     ind_train = 1:N-N_val
+#     ind_val = N-N_val+1:N
     
-    coefs = modes[ind_train,:]\hs[:, ind_train]'
-    err_val = norm(modes[ind_val,:]*coefs - hs[:,ind_val]')/norm(modes[ind_val,:])
+#     coefs = modes[ind_train,:]\hs[:, ind_train]'
+#     err_val = norm(modes[ind_val,:]*coefs - hs[:,ind_val]')/norm(modes[ind_val,:])
 
 
-    ## Step 3: Form the invariant torus
-    tor = FourierTorus(size(hs,1), Nks; τ = 2π .* w0);
-    for (ii, k) in enumerate(eachcol(ks))
-        tor.a[:, 1, (k + Nks .+ 1)...] = coefs[ii, :]
-    end
+#     ## Step 3: Form the invariant torus
+#     tor = FourierTorus(size(hs,1), Nks; τ = 2π .* w0);
+#     for (ii, k) in enumerate(eachcol(ks))
+#         tor.a[:, 1, (k + Nks .+ 1)...] = coefs[ii, :]
+#     end
 
-    return tor, err_val
-end
+#     return tor, err_val
+# end
 
 # OLD (probably)
 function get_Nmode(ω0::Number, N::Number, modetol::Number)
@@ -1514,6 +1517,7 @@ function get_circle_info(hs::AbstractArray, c::AbstractArray;
                          rattol::Number=1e-8, ratcutoff::Number=1e-2,
                          max_island_d::Integer=30, ϵ::Number=0.0,
                          modetol::Number=0.5)
+    @warn "get_circle_info is deprecated"
     λs, ωs, sum_ave, coefs = eigenvalues_and_project(hs, c)
 
     if max_island_d == 0

@@ -50,7 +50,7 @@ end
 """
     evaluate_on_grid(tor::FourierTorus, thetavecs::AbstractVector)
 
-
+Evaluate the torus on a grid defined by the vector-of-vectors `thetavecs`. 
 """
 function evaluate_on_grid(tor::FourierTorus, thetavecs::AbstractVector)
     # Get size
@@ -80,7 +80,9 @@ end
     kam_residual(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
 
 
-Compute the function F(tor(θ))-tor(θ+τ) on the grid defined by thetavecs.
+Compute the function `F(tor(θ))-tor(θ+τ)`` on the grid defined  by the vector-of-vectors 
+`thetavecs`. If the invariant torus was computed with a non-identity observable `h`, then `F` needs 
+to be given by `h ∘ F ∘ h^-1`.
 """
 function kam_residual(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
     xs_unshifted = evaluate_on_grid(tor, thetavecs)
