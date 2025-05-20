@@ -7,11 +7,11 @@ function get_sums_and_resid(x,c,D,H)
     sums, resid
 end
 
-"""
-    vector_mpe_backslash(x::AbstractArray, K::Integer)
+# """
+#     vector_mpe_backslash(x::AbstractArray, K::Integer)
 
-Applies Birkhoff vector MPE to a sequence `x_n = x[:, n]`
-"""
+# Applies Birkhoff vector MPE to a sequence `x_n = x[:, n]`
+# """
 function vector_mpe_backslash(x::AbstractArray, K::Integer; ϵ = 0.0, 
                               weighted::Bool=false, ortho::Bool=false)
     if ϵ != 0.0; println("Warning: vector_mpe_backslash not supported for ϵ!=0.0"); end
@@ -41,19 +41,19 @@ function vector_mpe_backslash(x::AbstractArray, K::Integer; ϵ = 0.0,
     return c, sums, resid
 end
 
-"""
-    vector_mpe_iterative(x::AbstractArray, K::Integer)
+# """
+#     vector_mpe_iterative(x::AbstractArray, K::Integer)
 
-Applies Birkhoff vector MPE to a sequence `x_n = x[:, n]` using the LSQR
-algorithm. This currently does not have preconditioning, and therefore is less
-accurate than `vector_mpe_backslash`.
+# Applies Birkhoff vector MPE to a sequence `x_n = x[:, n]` using the LSQR
+# algorithm. This currently does not have preconditioning, and therefore is less
+# accurate than `vector_mpe_backslash`.
 
-Arguments:
-- `x`: The sequence
-- `K`: The number of unknowns in the filter
-- `c0`: The initial guess of
-- `atol`, `btol`: Tolerances. See `IterativeSolvers.lsqr!`
-"""
+# Arguments:
+# - `x`: The sequence
+# - `K`: The number of unknowns in the filter
+# - `c0`: The initial guess of
+# - `atol`, `btol`: Tolerances. See `IterativeSolvers.lsqr!`
+# """
 function vector_mpe_iterative(x::AbstractArray, K::Integer; atol = 1e-14,
                               btol = 1e-14, c0 = nothing, ϵ = 0.0, weighted::Bool=false, 
                               ortho::Bool=true)

@@ -80,7 +80,7 @@ end
     kam_residual(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
 
 
-Compute the function `F(tor(θ))-tor(θ+τ)`` on the grid defined  by the vector-of-vectors 
+Compute the function `F(tor(θ))-tor(θ+τ)` on the grid defined  by the vector-of-vectors 
 `thetavecs`. If the invariant torus was computed with a non-identity observable `h`, then `F` needs 
 to be given by `h ∘ F ∘ h^-1`.
 """
@@ -119,6 +119,12 @@ function kam_residual(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
     return Fxs - xs_shifted
 end
 
+"""
+    kam_residual_rnorm(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
+
+Compute a relative error of the KAM residual `|F(tor(θ))-tor(θ+τ)|/|tor|`. If the invariant torus 
+was computed with a non-identity observable `h`, then `F` needs to be given by `h ∘ F ∘ h^-1`.
+"""
 function kam_residual_rnorm(tor::FourierTorus, F::Function, thetavecs::AbstractVector)
     resid = kam_residual(tor, F, thetavecs)
     N = prod(length.(thetavecs))

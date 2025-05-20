@@ -28,17 +28,18 @@ F = standard_map_F(k_sm)
 f, xs_pp = poincare_plot([0,1], [0,1], F, 500, 1000, title="Standard Map, k = $(k_sm)")
 f
 
-# The extrapolation method presented here has two steps:
-# 1. Perform an extrapolation method (minimal polynomial extrapolation (MPE) or
-#    reduced rank extrapolation (RRE)). The extrapolation method returns a
-#    filter for the sequence. When the linear model is applied to the sequence,
+# The extrapolation method presented here has three steps:
+# 1. Perform the Birkhoff reduced rank extrapolation (RRE) method. The extrapolation method returns 
+#    a filter for the sequence. When the linear model is applied to the sequence,
 #    it can extract the mean (also known as the Birkhoff ergodic average).
 #    Additionally, if the extrapolation returns a low residual, this can be used
 #    as an indicator that the trajectory is integrable (i.e. it is an invariant
 #    circle or island) rather than chaotic.
 # 2. If the trajectory is classified as integrable, we can extract frequency
 #    information from the learned filter. This can be used to recover the
-#    rotation number, as well as the Fourier modes of the invariant structures.
+#    rotation number.
+# 3. Once the rotation number is found, we paramterize the invariant torus by computing its
+#    Fourier coefficients.
 #
 # As first step, we choose some initial points. The above plot was made using
 # initial points sampled from a `SoboloSeq` (see
@@ -73,21 +74,17 @@ f
 # \end{pmatrix}
 # ```
 
-rtol = 1e-12
-Kinit = 50
+rtol = 1e-12   # tolerance for adaptive_birkhoff_extrapolation convergence
+Kinit = 50     # adaptive filter choice increases K along vector Kinit:Kstride:Kmax
 Kstride = 50
 Kmax = 400
-Nfactor = 1.5;
+Nfactor = 1.5; # "Rectangularity" of the least-squares problem
 
 h, HJ, hinv, HJinv = polar_map();
-cs = Vector{Vector{Float64}}(undef, Ncircle);
-hs = Vector{Matrix{Float64}}(undef, Ncircle);
-xs = Vector{Matrix{Float64}}(undef, Ncircle);
-rnorms = zeros(Ncircle)
-Ks = zeros(Int64, Ncircle)
+sols = Vector{BRREsolution}(undef, Ncircle);
 for ii = 1:Ncircle
     if (ii % 10) == 0; println("ii = $(ii)/$(Ncircle)"); end
-    cs[ii], _, _, xs[ii], hs[ii], rnorms[ii], Ks[ii], _ = adaptive_birkhoff_extrapolation(h, F, x_init[:, ii]; rtol, Kinit, Kstride, Kmax, Nfactor)
+    sols[ii] = adaptive_birkhoff_extrapolation(h, F, x_init[:, ii]; rtol, Kinit, Kstride, Kmax, Nfactor)
 end
 
 #-
@@ -97,29 +94,42 @@ f = Figure(;size, fontsize);
 ax = Axis(f[1,1], xlabel="x", ylabel="y");
 xlims!(0, 1); ylims!(0,1)
 for ii = (1:Ncircle)
-    if rnorms[ii] < rtol
-        CairoMakie.scatter!(xs[ii][1,:], xs[ii][2,:]; color=:black, markersize, label="Invariant Circles / Islands")
+    sol = sols[ii]
+    xs = sol.xs
+    if sol.resid_rre < rtol
+        CairoMakie.scatter!(xs[1,:], xs[2,:]; color=:black, markersize, label="Invariant Circles / Islands")
     else
-        CairoMakie.scatter!(xs[ii][1,:], xs[ii][2,:]; color=:red, markersize, label="Chaos")
+        CairoMakie.scatter!(xs[1,:], xs[2,:]; color=:red, markersize, label="Chaos")
     end
 end
 axislegend(ax, merge=true)
 f
 
-# The above is a plot which shows the trajectories as black if the extrapolation algorithm converged to the tolerance of `1e-7` and red if they did not. We see that the red trajectories did not converge quickly, and they correlate strongly with whether the trajectory is in chaos. We can check the filter length for the values of $K$ we iterated over:
+# The above is a plot which shows the trajectories as black if the extrapolation algorithm converged to the tolerance of `1e-12` and red if they did not. We see that the red trajectories did not converge quickly, and they correlate strongly with whether the trajectory is in chaos. We can check the filter length for the values of $K$ we iterated over:
 
 for Ki = Kinit:Kstride:Kmax
-    Ksum = sum(Ks .== Ki)
+    Ksum = 0
+    for sol in sols
+        if sol.K == Ki
+            Ksum += 1
+        end
+    end
     println("Number of trajectories for K=$(Ki) is $(Ksum)")
 end
 
 # We see that most trajectories are classified when $K \leq 200$, with only a few being classified later. Additionally, those that are mis-classified tend to be at the edges of island chains or chaos.
 #
-# Now, we turn to finding models for the invariant circles. We do this via the function `get_circle_info`.
+# Now, we turn to finding the rotation number and parameterizations of the invariant circles. We do this via the function `get_w0!` and `adaptive_get_torus!`.
 
-zs = Vector{FourierCircle}(undef, Ncircle)
-for ii = (1:Ncircle)[rnorms .< rtol]
-    zs[ii] = get_circle_info(hs[ii], cs[ii])
+dim = 1 # The dimension of the torus. Invariant circles are dimension 1.
+max_size = 100 # Maximum torus resolution considered. Increase for more accuracy
+maxNisland = 20 # Maximum allowed number of islands in a chain
+for (ii, sol) in enumerate(sols)
+    print("\rii=$(ii)/$(Ncircle)");flush(stdout);
+    if sol.resid_rre < rtol
+        get_w0!(sol,dim;maxNisland)
+        adaptive_get_torus!(sol; max_size)
+    end
 end
 
 # Additionally, for the special case where we need to work with observations from $h : \mathbb{T}\times\mathbb{R} \to \mathbb{R}^2$, we have a plotting routine that can be used to plot the invariant circles in $\mathbb{R}^2$ given an inverse function $h^{-1}$. This is done in the following:
@@ -127,22 +137,26 @@ end
 f = Figure(;size, fontsize);
 ax = Axis(f[1,1], xlabel="x", ylabel="y")
 xlims!(0, 1); ylims!(0,1)
-for ii = (1:Ncircle)[rnorms .< rtol]
-    lines_periodic!(ax, zs[ii], hinv; N=500, color=:red, linewidth=4, label="Invariant Circles")
-    scatter!(xs[ii][1,:], xs[ii][2,:], markersize=3, color=:blue, label="Trajectories")
+for sol in sols[1:100]
+    xs = sol.xs
+    if sol.resid_rre < rtol
+        lines_periodic!(ax, sol.tor, hinv; N=500, color=:red, linewidth=4, label="Invariant Circles")
+        scatter!(xs[1,:], xs[2,:], markersize=3, color=:blue, label="Trajectories")
+    end
 end
 axislegend(ax, merge=true)
 f
 
 # In the above plot, we have plotted the trajectories on the found invariant circles. We see that the trajectories qualitatively match well. Additionally, we can use the function `get_circle_residual` to find a validation error. This is useful in automatically identifying cases where the found Fourier series is incorrect.
 
-N_norm = 6;
+N_norm = 50;
 errs_validation = zeros(Ncircle)
-for ii = (1:Ncircle)[rnorms .< rtol]
-    res = get_circle_residual((x) -> h(F(hinv(x))), zs[ii], N_norm)
+ind = [sol.resid_rre .< rtol for sol in sols]
+for ii = (1:Ncircle)[ind]
+    res = get_circle_residual((y) -> h(F(hinv(y))), sols[ii].tor, N_norm)
     errs_validation[ii] = norm(res)/sqrt(length(res))
 end
-ind = rnorms .< rtol
+
 
 println("Invariant circle validation errors:
    smallest --- $(minimum(errs_validation[ind]))

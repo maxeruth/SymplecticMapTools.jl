@@ -9,7 +9,7 @@ If you want to try it sooner, you must install this package via cloning.
 The functions `adaptive_birkhoff_extrapolation`, `get_w0!`, and `adaptive_get_torus!` can be used to compute the higher dimensional tori.
 
 # SymplecticMapTools.jl
-SymplecticMapTools is a package devoted to different tools for analyzing (primarily 2D)
+SymplecticMapTools is a package devoted to different tools for analyzing
 symplectic maps. The overall goal of this package is to provide a set of tools
 that can be used to robustly characterize orbits and find invariant structures
 while being efficient in the number of evaluations of the map. If you have any
@@ -44,11 +44,5 @@ For installation, add the package from the general repository using the command
 This package uses Requires for plotting.
 You must load CairoMakie or Plots separately to use the plotting functionality.
 
-## Development
-This is a new package, and things are changing rapidly! Currently, features
-involving the InvariantCircle struct, the extrapolation algorithm, and
-periodic orbits (1, 3, and 4 above) are mostly tested, with the features related
-to (3) still in need of testing. More examples are being added as well.
-
 ## Contact
-For any questions, email [mer335@cornell.edu](mailto:mer335@cornell.edu)
+For any questions, email [maximilian.ruth@austin.utexas.edu](mailto:maximilian.ruth@austin.utexas.edu).

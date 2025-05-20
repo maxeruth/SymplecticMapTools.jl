@@ -167,7 +167,7 @@ mutable struct BRREsolution
     w0::AbstractVector # Rotation Vector
     resid_w0::Number   # Rotation Vector Residual
 
-    tor::FourierTorus # Invariant Torus
+    tor::Union{FourierTorus,FourierCircle} # Invariant Torus
     resid_tor::Number # Invariant Torus Residual
 
     function BRREsolution(D::Integer, F::Function, h::Function, xs::AbstractArray, 
@@ -954,6 +954,12 @@ function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number;
     end
     _, Nisland = find_rationals(ws[1:2:2Nsearch], maxNisland, rattol)
     
+    # This is just to give a chance that we have enough frequencies to identify a rotation Vector
+    # (helps with the edge case of a periodic orbit)
+    if Nsearch < Nisland
+        Nsearch = Nisland-1+Nw0
+    end
+
     ## Step 2: Get a candidate value of w0
     N_h = length(coefs[1,:])
     C_h, r_h = SymplecticMapTools.smoothness_estimate(H2norms, Nw0, N_h, Nisland)
@@ -1332,6 +1338,10 @@ function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix;
         tor.a[:, :, (k + Nks .+ 1)...] = X[ii, :]
     end
 
+    if length(w0) == 1
+        tor = FourierCircle(tor)
+    end
+
     return tor, err_best
 end
 
@@ -1491,28 +1501,28 @@ function coefs_to_circle(sum_ave::AbstractArray, circle_coef::AbstractArray,
     z
 end
 
-"""
-    get_circle_info(hs::AbstractArray, c::AbstractArray; rattol::Number=1e-8,
-                    ratcutoff::Number=1e-4, max_island_d::Integer=30)
+# """
+#     get_circle_info(hs::AbstractArray, c::AbstractArray; rattol::Number=1e-8,
+#                     ratcutoff::Number=1e-4, max_island_d::Integer=30)
 
-Get a Fourier representation of an invariant circle from the observations
-`hs` and the learned filter `c` (see `adaptive_invariant_circle_model` and
-`invariant_circle_model` to find the filter). See `get_circle_residual` for an
-a posteriori validation of the circle.
+# Get a Fourier representation of an invariant circle from the observations
+# `hs` and the learned filter `c` (see `adaptive_invariant_circle_model` and
+# `invariant_circle_model` to find the filter). See `get_circle_residual` for an
+# a posteriori validation of the circle.
 
-Optional Arguments:
-- `rattol`: Roots are judged to be rational if |ω-m/n|<rattol
-- `ratcutoff`: Relative prominence needed by a linear mode to qualify as
-  "important" for deciding whether the sequence is an island
-- `max_island_d`: Maximum denominator considered for islands.
-- `modetol`: Tolerance (typically less than 1) used for determining the number
-  of Fourier modes. Higher numbers result in more Fourier modes at the expense
-  of robustness of the least-squares system.  Decrease it (e.g. to 0.5) for
-  noisy data
+# Optional Arguments:
+# - `rattol`: Roots are judged to be rational if |ω-m/n|<rattol
+# - `ratcutoff`: Relative prominence needed by a linear mode to qualify as
+#   "important" for deciding whether the sequence is an island
+# - `max_island_d`: Maximum denominator considered for islands.
+# - `modetol`: Tolerance (typically less than 1) used for determining the number
+#   of Fourier modes. Higher numbers result in more Fourier modes at the expense
+#   of robustness of the least-squares system.  Decrease it (e.g. to 0.5) for
+#   noisy data
 
-Output:
-- `z`: An invariant circle of type `FourierCircle`
-"""
+# Output:
+# - `z`: An invariant circle of type `FourierCircle`
+# """
 function get_circle_info(hs::AbstractArray, c::AbstractArray;
                          rattol::Number=1e-8, ratcutoff::Number=1e-2,
                          max_island_d::Integer=30, ϵ::Number=0.0,

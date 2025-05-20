@@ -34,8 +34,8 @@ using JLD2
 
 ## Files to include
 include("./PeriodicOrbits/PeriodicOrbits.jl")
-include("./InvariantCircles/InvariantCircles.jl")
 include("./InvariantTori/FourierTorus.jl")
+include("./InvariantCircles/InvariantCircles.jl")
 include("./InvariantCircles/ConnectingOrbit.jl")
 include("./LabelFunction/KernelLabel.jl")
 include("./Birkhoff/BirkhoffAveraging.jl")
@@ -78,11 +78,10 @@ export KernelLabel, get_matrix, kernel_sample_F, window_weight, rectangular_wind
 export standard_map_F, standard_map_FJ, polar_map
 
 # BirkhoffAveraging.jl, ContinuedFractions.jl, MPE.jl
-export vector_mpe_backslash, vector_mpe_iterative, vector_rre_backslash, vector_rre_iterative,
-       ContFrac, big_cont_frac_eval, partial_frac, denoms, big_partial_frac, big_denoms, wba_weight,
-       weighted_birkhoff_average, BRREsolution, save_rre, load_rre, doubling_birkhoff_average, 
-       birkhoff_extrapolation, adaptive_birkhoff_extrapolation, get_w0, get_w0!, get_torus, 
-       sum_stats, get_sum_ave, get_circle_info, adaptive_get_torus, adaptive_get_torus!
+export vector_rre_backslash, ContFrac, big_cont_frac_eval, partial_frac, denoms, big_partial_frac, 
+       big_denoms, wba_weight, weighted_birkhoff_average, BRREsolution, save_rre, load_rre, 
+       doubling_birkhoff_average, birkhoff_extrapolation, adaptive_birkhoff_extrapolation, get_w0, 
+       get_w0!, get_torus, sum_stats, get_sum_ave, adaptive_get_torus, adaptive_get_torus!
 
 # LyapunovExponents.jl
 export lyapunov_exponent, lyapunov_exponents
