@@ -27,8 +27,7 @@
     # Test the torus is correct
     adaptive_get_torus!(sol)
     Ntheta = 10
-    theta_vec = (0:Ntheta-1) .* (2π/Ntheta)
-    @test kam_residual_rnorm(sol.tor, (y) -> h(F(hinv(y))), [theta_vec]) < 1e-10
+    @test norm(get_circle_residual((y) -> h(F(hinv(y))), sol.tor, Ntheta)) < 1e-10
 
     ## Dimension tests
     w0s = mod.([sqrt(5)/2-1, 2-sqrt(3), sqrt(2)-1], 1.)
@@ -49,8 +48,13 @@
 
         # Check parameterization
         adaptive_get_torus!(sol)
-        theta_vecs = [theta_vec for ii = 1:dim]
-        @test kam_residual_rnorm(sol.tor, (y) -> h(F(hinv(y))), theta_vecs) < 1e-10
+        if dim == 1
+            @test norm(get_circle_residual((y) -> h(F(hinv(y))), sol.tor, Ntheta)) < 1e-10
+        else
+            theta_vec = (0:Ntheta-1) .* (2π/Ntheta)
+            theta_vecs = [theta_vec for ii = 1:dim]
+            @test kam_residual_rnorm(sol.tor, (y) -> h(F(hinv(y))), theta_vecs) < 1e-10
+        end
     end
 
 
