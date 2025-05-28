@@ -3,11 +3,6 @@
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://maxeruth.github.io/SymplecticMapTools.jl/dev/)
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://maxeruth.github.io/SymplecticMapTools.jl/stable/)
 
-# In Progress
-We are currently working on updating the documentation and testing to include [2] below. 
-If you want to try it sooner, you must install this package via cloning.
-The functions `adaptive_birkhoff_extrapolation`, `get_w0!`, and `adaptive_get_torus!` can be used to compute the higher dimensional tori.
-
 # SymplecticMapTools.jl
 SymplecticMapTools is a package devoted to different tools for analyzing
 symplectic maps. The overall goal of this package is to provide a set of tools
