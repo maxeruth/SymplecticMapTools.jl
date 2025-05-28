@@ -17,7 +17,8 @@ makedocs(
         "SymplecticMapTools.jl" => "index.md",
         "Examples" => [
             "Birkhoff Averages" => "examples/birkhoff_averaging/birkhoff_averaging.md",
-            "Birkhoff Extrapolation" => "examples/extrapolation/extrapolation.md",
+            "Birkhoff RRE" => "examples/extrapolation/extrapolation.md",
+            "3D Birkhoff RRE" => "examples/3d_extrapolation/3d_extrapolation.md",
             "Approximately Invariant Kernel Functions" => "examples/kernel/kernel.md"
         ],
         "Documentation" => "lib/Documentation.md",
