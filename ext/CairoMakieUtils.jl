@@ -128,8 +128,8 @@ function plot_on_grid(x::AbstractVector, y::AbstractVector, k::KernelLabel;
    colormap = colorschemes[:diverging_linear_bjr_30_55_c53_n256]
 
    levels = LinRange(colorrange[1], colorrange[2], levels)
-   p = CairoMakie.contourf!(x, y, f_grid; levels,  linewidth, colormap);
-   p2 = CairoMakie.contour!(x, y, f_grid; levels, color=:black, linewidth);
+   p = CairoMakie.contourf!(x, y, f_grid; levels, colormap);
+   CairoMakie.contour!(x, y, f_grid; levels, color=:black, linewidth);
    CairoMakie.xlims!(minimum(x), maximum(x))
    CairoMakie.ylims!(minimum(y), maximum(y))
    CairoMakie.Colorbar(f[1, 2], p, label = clabel)

@@ -56,6 +56,14 @@ area
 circle_linear!
 ```
 
+## Fourier Tori
+```@docs
+FourierTorus
+evaluate_on_grid
+kam_residual
+kam_residual_rnorm
+```
+
 ## Connecting Orbits
 ```@docs
 ConnectingOrbit
@@ -100,17 +108,19 @@ big_denoms
 
 ## Birkhoff Extrapolation
 ```@docs
-vector_rre_backslash
-vector_mpe_backslash
-vector_mpe_iterative
 wba_weight
 weighted_birkhoff_average
 doubling_birkhoff_average
+BRREsolution
+save_rre
+load_rre
+vector_rre_backslash
 birkhoff_extrapolation
 adaptive_birkhoff_extrapolation
+get_w0!
+adaptive_get_torus!
 sum_stats
 get_sum_ave
-get_circle_info
 ```
 
 ## Lyapunov Exponents

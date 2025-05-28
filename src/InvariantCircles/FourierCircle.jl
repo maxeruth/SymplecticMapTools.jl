@@ -28,6 +28,25 @@ struct FourierCircle <: InvariantCircle
    end
 end
 
+function FourierCircle(tor::FourierTorus)
+   sz = size(tor.a)
+   @assert length(sz) == 3 # Needs to be a 1D torus
+   @assert sz[1] == 2      # Needs to be a 1D torus in a 2D domain
+   p = sz[2]
+   Na = sz[3]÷2
+   
+   a = zeros(2,2Na+1,p)
+   for ii = 1:p
+      for jj = 1:2
+         a[jj,1,ii] = real.(tor.a[jj,ii,Na+1])
+         a[jj,2:2:end,ii] = 2 .* real.(tor.a[jj,ii,Na+2:end])
+         a[jj,3:2:end,ii] = -2 .* imag.(tor.a[jj,ii,Na+2:end])
+      end
+   end
+
+   FourierCircle(Na; a=reshape(a,4Na+2,p), p=p, τ=tor.τ[1])
+end
+
 ## Getters and setters
 function Base.size(z::FourierCircle)
    return z.sz;
