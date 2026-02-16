@@ -261,12 +261,13 @@ function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
     x = deepcopy(x0);
     h0 = h(x);
     D = length(h0);
+    Dx = length(x)
 
     @assert N*D ≥ K
 
     Nx = N+2K+1
     hs = zeros(D, Nx);
-    xs = zeros(D, Nx);
+    xs = zeros(Dx, Nx);
 
     hs[:, 1] = h0;
     xs[:, 1] = x;
