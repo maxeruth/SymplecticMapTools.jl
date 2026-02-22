@@ -1,7 +1,7 @@
 name = "SymplecticMapTools"
 uuid = "6d28690f-f14d-4e01-b22c-df83f7606a8b"
-authors = ["Max Ruth", "David Bindel"]
 version = "0.2.0"
+authors = ["Max Ruth", "David Bindel"]
 
 [deps]
 Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
@@ -36,7 +36,7 @@ IterativeSolvers = "0.9"
 JLD2 = "0.5.11, 0.6"
 LLLplus = "1.4.0"
 LinearOperators = "2"
-Optim = "1"
+Optim = "1, 2"
 Plots = "1"
 Polynomials = "3, 4"
 QuadGK = "2"
