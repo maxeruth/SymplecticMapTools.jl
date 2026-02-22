@@ -140,6 +140,7 @@ The solution object for the Birkhoff RRE Framework. Contains:
     - `c`: Filter coefficients
     - `h_ave`: Birkhoff average
     - `resid_rre`: Reduced Rank Extrapolation residual
+    - `prof_info`: A `Dict`` of timing information
 
 [`get_w0!`](@ref) output:
     - `d`: Torus dimension
@@ -170,9 +171,11 @@ mutable struct BRREsolution
     tor::Union{FourierTorus,FourierCircle} # Invariant Torus
     resid_tor::Number # Invariant Torus Residual
 
+    prof_info::AbstractDict
+
     function BRREsolution(D::Integer, F::Function, h::Function, xs::AbstractArray, 
                           hs::AbstractArray, K::Integer, c::AbstractVector, h_ave::AbstractVector, 
-                          resid_rre::Number)
+                          resid_rre::Number, prof_info::Dict)
         d = 0;
         w0 = Float64[];
         resid_w0 = Inf;
@@ -180,7 +183,7 @@ mutable struct BRREsolution
         tor = FourierTorus(D,ones(Integer,d))
         resid_tor = Inf;
 
-        new(D,F,h,xs,hs,K,c,h_ave,resid_rre,d,w0,resid_w0,tor,resid_tor)
+        new(D,F,h,xs,hs,K,c,h_ave,resid_rre,d,w0,resid_w0,tor,resid_tor,prof_info)
     end
 end
 
@@ -203,12 +206,13 @@ function save_rre(file::AbstractString, sol::BRREsolution)
     resid_w0 = sol.resid_w0
     tor = sol.tor
     resid_tor = sol.resid_tor
+    prof_info = sol.prof_info
 
     tor_a = tor.a
     tor_τ = tor.τ
     tor_d, tor_p, tor_Na = tor.sz
 
-    @save file D xs hs K c h_ave resid_rre d w0 resid_w0 resid_tor tor_a tor_τ tor_d tor_p tor_Na
+    @save file D xs hs K c h_ave resid_rre d w0 resid_w0 resid_tor tor_a tor_τ tor_d tor_p tor_Na prof_info
 end
  
 """
@@ -217,9 +221,9 @@ end
 Load an RRE solution object from a file (saved by [`save_rre`](@ref)). 
 """
 function load_rre(file::AbstractString)
-    @load file D xs hs K c h_ave resid_rre d w0 resid_w0 resid_tor tor_a tor_τ tor_d tor_p tor_Na
+    @load file D xs hs K c h_ave resid_rre d w0 resid_w0 resid_tor tor_a tor_τ tor_d tor_p tor_Na prof_info
     tor = FourierTorus(tor_d, tor_Na; a=tor_a, p=tor_p, τ=tor_τ)
-    sol = BRREsolution(D, (x)->nothing, (x)->nothing, xs, hs, K, c, h_ave, resid_rre)
+    sol = BRREsolution(D, (x)->nothing, (x)->nothing, xs, hs, K, c, h_ave, resid_rre, prof_info)
     sol.d = d
     sol.w0 = w0
     sol.resid_w0 = resid_w0
@@ -258,42 +262,50 @@ function birkhoff_extrapolation(h::Function, F::Function, x0::AbstractVector,
                                 x_prev::Union{AbstractArray,Nothing}=nothing,
                                 ϵ::Number=0.0, weighted::Bool=false,
                                 ortho::Bool=true)
-    x = deepcopy(x0);
-    h0 = h(x);
-    D = length(h0);
+    prof_info = Dict()
+    prof_info["birkhoff_extrapolation"] = @elapsed begin
+        prof_info["birkhoff_extrapolation: trajectory step"] = @elapsed begin
+            x = deepcopy(x0);
+            h0 = h(x);
+            D = length(h0);
+            Dx = length(x)
 
-    @assert N*D ≥ K
+            @assert N*D ≥ K
 
-    Nx = N+2K+1
-    hs = zeros(D, Nx);
-    xs = zeros(D, Nx);
+            Nx = N+2K+1
+            hs = zeros(D, Nx);
+            xs = zeros(Dx, Nx);
 
-    hs[:, 1] = h0;
-    xs[:, 1] = x;
-    ii_init = 2;
-    if x_prev !== nothing
-        N_prev = size(x_prev, 2)
-        xs[:, 1:N_prev] = x_prev;
-        for ii = 1:N_prev
-            hs[:, ii] = h(xs[:,ii])
+            hs[:, 1] = h0;
+            xs[:, 1] = x;
+            ii_init = 2;
+            if x_prev !== nothing
+                N_prev = size(x_prev, 2)
+                xs[:, 1:N_prev] = x_prev;
+                for ii = 1:N_prev
+                    hs[:, ii] = h(xs[:,ii])
+                end
+                ii_init = N_prev+1
+            end
+            x = xs[:, ii_init-1]
+
+            
+            for ii = ii_init:Nx
+                xs[:,ii] = F(xs[:,ii-1]);
+                hs[:,ii] = h(xs[:,ii])
+            end
         end
-        ii_init = N_prev+1
+
+        prof_info["birkhoff_extrapolation: least squares step"] = @elapsed begin
+            c, sums, resid = vector_rre_backslash(hs, K; ϵ, weighted, ortho)
+        end
+
+        h_ave = sums[:,1];
+
+        resid_rre = norm(resid)/unorm(hs)
     end
-    x = xs[:, ii_init-1]
 
-    
-    for ii = ii_init:Nx
-        xs[:,ii] = F(xs[:,ii-1]);
-        hs[:,ii] = h(xs[:,ii])
-    end
-
-    c, sums, resid = vector_rre_backslash(hs, K; ϵ, weighted, ortho)
-
-    h_ave = sums[:,1];
-
-    resid_rre = norm(resid)/unorm(hs)
-
-    BRREsolution(D, F, h, xs, hs, K, c, h_ave, resid_rre)
+    BRREsolution(D, F, h, xs, hs, K, c, h_ave, resid_rre, prof_info)
 end
 
 
@@ -322,12 +334,11 @@ function adaptive_birkhoff_extrapolation(h::Function, F::Function, x0::AbstractV
                                          rtol::Number=1e-10, Kinit = 100, Kmax = 500, Kstride=200,
                                          Nfactor::Number=5, ϵ::Number=0.0, weighted::Bool=false, 
                                          ortho::Bool=true)
-    #
     d = length(h(x0));
     K = Kinit-Kstride
     N = ceil(Int, 2*Nfactor*K / d);
 
-    sol, xs = nothing, nothing
+    sol, xs, prof_prev = nothing, nothing, nothing
 
     rnorm = Inf; 
     while (K+Kstride <= Kmax) && (rnorm > rtol)
@@ -337,6 +348,13 @@ function adaptive_birkhoff_extrapolation(h::Function, F::Function, x0::AbstractV
         sol = birkhoff_extrapolation(h, F, x0, N, K; x_prev=xs, ϵ, weighted, ortho)
         xs = sol.xs
         rnorm = sol.resid_rre
+
+        if !isnothing(prof_prev)
+            for (key, value) in sol.prof_info
+                sol.prof_info[key] = value + prof_prev[key]
+            end
+        end
+        prof_prev = sol.prof_info
     end
 
     return sol
@@ -935,45 +953,54 @@ function get_w0(hs::AbstractArray, c::AbstractVector, Nw0::Number;
                 Nsearch::Integer=30, Nsearchcutoff::Number=1e-6, gridratio::Number=0., 
                 Nkz::Integer=50, sigma_w::Number = 1e-10, rattol::Number = 1e-6, 
                 maxNisland::Number = 10)
-    # Get correct default grid ratio
-    if gridratio==0.
-        gridratio = (Nw0 == 1) ? 2. : 5.
+    prof_info = Dict()
+    prof_info["get_w0"] = @elapsed begin
+        # Get correct default grid ratio
+        if gridratio==0.
+            gridratio = (Nw0 == 1) ? 2. : 5.
+        end
+
+        ## Step 1: Get the roots sorted by the value of coefs
+        prof_info["get_w0: eigenvalues_and_project step"] = @elapsed begin
+            _, ws, _, coefs = eigenvalues_and_project(hs, c)
+        end
+
+        prof_info["get_w0: Bayesian step"] = @elapsed begin
+            ## Step 1.5: Check if there is a rational rotation number
+            H2norms = [real(H'*H) for H in eachrow(coefs)]
+            if 2Nsearch > length(H2norms)
+                Nsearch = length(H2norms)÷2
+            end
+
+            while (Nsearch >= Nw0+1) && ((H2norms[2Nsearch]/H2norms[1]) < Nsearchcutoff) # Make sure that we aren't using garbage
+                Nsearch = Nsearch-1
+            end
+            _, Nisland = find_rationals(ws[1:2:2Nsearch], maxNisland, rattol)
+            
+            # This is just to give a chance that we have enough frequencies to identify a rotation Vector
+            # (helps with the edge case of a periodic orbit)
+            if Nsearch < Nisland
+                Nsearch = Nisland-1+Nw0
+            end
+
+            ## Step 2: Get a candidate value of w0
+            N_h = length(coefs[1,:])
+            C_h, r_h = SymplecticMapTools.smoothness_estimate(H2norms, Nw0, N_h, Nisland)
+            Ngrids = vcat([Nisland], floor(Integer, (2. * Nsearch)^(1/Nw0) * gridratio) .* ones(Integer, Nw0))
+            w0, logposterior = initial_w0(ws[1:2:2Nsearch], H2norms[1:2:2Nsearch], Nw0, Nisland, sigma_w, 
+                                        r_h, C_h, N_h, Ngrids)
+        end
+
+        prof_info["get_w0: KZ step"] = @elapsed begin
+            ## Step 3: Find the optimal rotation vector by KZ basis
+            matchtol = 1.
+            Nkz = min(Nkz,size(coefs,1)÷4)
+            coef_norms = [norm(row) for row in eachrow(coefs[1:2Nkz,:])]
+            w0 = refine_w0(w0, ws[1:2Nkz], coef_norms, matchtol, gridratio)
+        end
     end
 
-    ## Step 1: Get the roots sorted by the value of coefs
-    _, ws, _, coefs = eigenvalues_and_project(hs, c)
-
-    ## Step 1.5: Check if there is a rational rotation number
-    H2norms = [real(H'*H) for H in eachrow(coefs)]
-    if 2Nsearch > length(H2norms)
-        Nsearch = length(H2norms)÷2
-    end
-
-    while (Nsearch >= Nw0+1) && ((H2norms[2Nsearch]/H2norms[1]) < Nsearchcutoff) # Make sure that we aren't using garbage
-        Nsearch = Nsearch-1
-    end
-    _, Nisland = find_rationals(ws[1:2:2Nsearch], maxNisland, rattol)
-    
-    # This is just to give a chance that we have enough frequencies to identify a rotation Vector
-    # (helps with the edge case of a periodic orbit)
-    if Nsearch < Nisland
-        Nsearch = Nisland-1+Nw0
-    end
-
-    ## Step 2: Get a candidate value of w0
-    N_h = length(coefs[1,:])
-    C_h, r_h = SymplecticMapTools.smoothness_estimate(H2norms, Nw0, N_h, Nisland)
-    Ngrids = vcat([Nisland], floor(Integer, (2. * Nsearch)^(1/Nw0) * gridratio) .* ones(Integer, Nw0))
-    w0, logposterior = initial_w0(ws[1:2:2Nsearch], H2norms[1:2:2Nsearch], Nw0, Nisland, sigma_w, 
-                                  r_h, C_h, N_h, Ngrids)
-
-    ## Step 3: Find the optimal rotation vector by KZ basis
-    matchtol = 1.
-    Nkz = min(Nkz,size(coefs,1)÷4)
-    coef_norms = [norm(row) for row in eachrow(coefs[1:2Nkz,:])]
-    w0 = refine_w0(w0, ws[1:2Nkz], coef_norms, matchtol, gridratio)
-
-    return w0, logposterior
+    return w0, logposterior, prof_info
 end
 
 
@@ -1003,12 +1030,15 @@ Input:
 function get_w0!(sol::BRREsolution, Nw0::Integer; Nsearch::Integer=30, Nsearchcutoff::Number=1e-6, 
                  gridratio::Number=0., Nkz::Integer=50, sigma_w::Number = 1e-10, 
                  rattol::Number = 1e-8, maxNisland::Number = 10)
-    w0, resid = get_w0(sol.hs, sol.c, Nw0; Nsearch, gridratio, Nkz, sigma_w,
-                       Nsearchcutoff,rattol,maxNisland)
+    w0, resid, w0_prof_info = get_w0(sol.hs, sol.c, Nw0; Nsearch, gridratio, Nkz, sigma_w,
+                                     Nsearchcutoff,rattol,maxNisland)
     
     sol.d = Nw0
     sol.w0 = w0
     sol.resid_w0 = resid
+    for (key, value) in w0_prof_info
+        sol.prof_info[key] = value
+    end
 end
 
 
@@ -1205,144 +1235,147 @@ end
 function adaptive_get_torus(w0::AbstractVector, hs::AbstractMatrix; 
                             validation_fraction::Number=0.05, ridge_factor::Number=10,
                             max_size::Number=2000)
-    
-    # Preprocess for an island
-    Nisland = 1
-    Nw0 = length(w0)
-    if typeof(w0[1]) <: Rational
-        Nisland = denominator(w0[1])
-        w0_old = w0
-        w0 = zeros(Nw0-1)
-        w0[:] = abs.(mid_mod.(w0_old[2:end] .* Nisland))
-        Nw0 = Nw0-1
-    end
+    prof_info = Dict()
 
-    D_pre, N_pre = size(hs)
-    hs = reshape(hs[:,1:(N_pre÷Nisland) * Nisland], D_pre*Nisland, N_pre÷Nisland) # Reshape to island
-    D, N = size(hs)
-    
-    # Problem dimensions
-    
-    N_train = floor(Integer, (1-validation_fraction)*N)
-
-    ind_train = 1:N_train
-    ind_val = N_train+1:N
-
-    # Initialize the least-squares problem
-    sz = zeros(Integer, Nw0)
-    B = hs'
-    B_train = B[ind_train, :] .* (1. + 0. * im)
-    B_val   = B[ind_val, :]   .* (1. + 0. * im)
-    err_den = norm(B[ind_val, :]) # normalization for the relative error
-    
-    mode_bank = ones(ComplexF64, N, 1)
-    ks_bank = zeros(Integer, Nw0, 1)
-    for ii = 1:Nw0
-        sz_ii = zeros(Integer, Nw0)
-        sz_ii[1:ii-1] .= 1;
-        Aii, ksii = get_update_matrix(w0,N,ii,sz_ii)
-
-        mode_bank = hcat(mode_bank, Aii)
-        ks_bank   = hcat(ks_bank,  ksii)
-    end
-    ind_A=[1]
-    
-    QRs = [AdaptiveQR(ComplexF64, N_train, D, N-N_train) for _ = 1:Nw0]
-    for ii = 1:Nw0; 
-        update!(QRs[ii], mode_bank[ind_train,ind_A],ind_A, mode_bank[ind_val, ind_A])
-        solve!(QRs[ii],B_train)
-    end
-
-    dir_best = 1;
-    err_best = get_torus_err(B_val, QRs[dir_best]) / err_den
-    M_best   = 1;
-
-    Lmode = size(mode_bank,2);
-    
-    
-
-    # Adaptively find the best validation error
-    for _ = 1:N_train # This loop should always break, but making it finite for error catching
-        # Consider updating in each dimension
-        err_candidates = zeros(Nw0)
-
-        for jj = 1:Nw0
-            kind_update = update_inds((@view ks_bank[:,1:Lmode]), get_kinds(QRs[jj]), sz, jj)
-            
-            if length(kind_update)+QRs[jj].M > min(N_train, max_size) # Never solve a least squares problem too large
-                err_candidates[jj] = Inf
-            else
-                @views update!(QRs[jj],(mode_bank[ind_train,kind_update]), kind_update, mode_bank[ind_val, kind_update])
-                solve!(QRs[jj], B_train)
-                err_candidates[jj] = get_torus_err(B_val, QRs[jj])/err_den
-            end
+    prof_info["adaptive_get_torus"] = @elapsed begin
+        # Preprocess for an island
+        Nisland = 1
+        Nw0 = length(w0)
+        if typeof(w0[1]) <: Rational
+            Nisland = denominator(w0[1])
+            w0_old = w0
+            w0 = zeros(Nw0-1)
+            w0[:] = abs.(mid_mod.(w0_old[2:end] .* Nisland))
+            Nw0 = Nw0-1
         end
-        
-        # Update in the best direction or break
-        dir = 0
-        min_sz = 3;
-        if minimum(sz) < min_sz # We want to make sure we end up with at least a 3x3x... resolution
-            dir = argmin(sz)
 
-            if err_candidates[dir] != Inf
-                err_best = err_candidates[dir]*2
-            end
-        else
-            dir = argmin(err_candidates)
+        D_pre, N_pre = size(hs)
+        hs = reshape(hs[:,1:(N_pre÷Nisland) * Nisland], D_pre*Nisland, N_pre÷Nisland) # Reshape to island
+        D, N = size(hs)
+        
+        # Problem dimensions
+        
+        N_train = floor(Integer, (1-validation_fraction)*N)
+
+        ind_train = 1:N_train
+        ind_val = N_train+1:N
+
+        # Initialize the least-squares problem
+        sz = zeros(Integer, Nw0)
+        B = hs'
+        B_train = B[ind_train, :] .* (1. + 0. * im)
+        B_val   = B[ind_val, :]   .* (1. + 0. * im)
+        err_den = norm(B[ind_val, :]) # normalization for the relative error
+        
+        mode_bank = ones(ComplexF64, N, 1)
+        ks_bank = zeros(Integer, Nw0, 1)
+        for ii = 1:Nw0
+            sz_ii = zeros(Integer, Nw0)
+            sz_ii[1:ii-1] .= 1;
+            Aii, ksii = get_update_matrix(w0,N,ii,sz_ii)
+
+            mode_bank = hcat(mode_bank, Aii)
+            ks_bank   = hcat(ks_bank,  ksii)
         end
+        ind_A=[1]
         
-        err_dir = err_candidates[dir]
-        if err_dir < ridge_factor*err_best
-            # If this is the best we've seen, update best values
-            if err_dir < err_best
-                err_best = err_dir
-                dir_best = dir
-                M_best   = QRs[dir].M
-            end
+        QRs = [AdaptiveQR(ComplexF64, N_train, D, N-N_train) for _ = 1:Nw0]
+        for ii = 1:Nw0; 
+            update!(QRs[ii], mode_bank[ind_train,ind_A],ind_A, mode_bank[ind_val, ind_A])
+            solve!(QRs[ii],B_train)
+        end
 
-            # Either way, we take a next step
-            mode_next, ks_next = get_update_matrix(w0,N,dir,sz .+ 1)
+        dir_best = 1;
+        err_best = get_torus_err(B_val, QRs[dir_best]) / err_den
+        M_best   = 1;
 
-            Lnext = size(mode_next,2)
-            while Lnext+Lmode >= size(mode_bank,2)
-                tmp = mode_bank
-                tmp_k = ks_bank
+        Lmode = size(mode_bank,2);
+        
+        
+
+        # Adaptively find the best validation error
+        for _ = 1:N_train # This loop should always break, but making it finite for error catching
+            # Consider updating in each dimension
+            err_candidates = zeros(Nw0)
+
+            for jj = 1:Nw0
+                kind_update = update_inds((@view ks_bank[:,1:Lmode]), get_kinds(QRs[jj]), sz, jj)
                 
-                mode_bank = Matrix{ComplexF64}(undef, N, 2*size(tmp,2))
-                ks_bank = zeros(Integer,Nw0,2*size(tmp,2))
-                mode_bank[:,1:Lmode] .= tmp[:,1:Lmode]
-                ks_bank[:,1:Lmode] .= tmp_k[:,1:Lmode]
+                if length(kind_update)+QRs[jj].M > min(N_train, max_size) # Never solve a least squares problem too large
+                    err_candidates[jj] = Inf
+                else
+                    @views update!(QRs[jj],(mode_bank[ind_train,kind_update]), kind_update, mode_bank[ind_val, kind_update])
+                    solve!(QRs[jj], B_train)
+                    err_candidates[jj] = get_torus_err(B_val, QRs[jj])/err_den
+                end
             end
-            mode_bank[:,Lmode+1:Lmode+Lnext] .= mode_next
-            ks_bank[:,Lmode+1:Lmode+Lnext] .= ks_next
+            
+            # Update in the best direction or break
+            dir = 0
+            min_sz = 3;
+            if minimum(sz) < min_sz # We want to make sure we end up with at least a 3x3x... resolution
+                dir = argmin(sz)
 
-            Lmode = Lmode+Lnext
-            sz[dir] = sz[dir]+1
-        else
-            break
+                if err_candidates[dir] != Inf
+                    err_best = err_candidates[dir]*2
+                end
+            else
+                dir = argmin(err_candidates)
+            end
+            
+            err_dir = err_candidates[dir]
+            if err_dir < ridge_factor*err_best
+                # If this is the best we've seen, update best values
+                if err_dir < err_best
+                    err_best = err_dir
+                    dir_best = dir
+                    M_best   = QRs[dir].M
+                end
+
+                # Either way, we take a next step
+                mode_next, ks_next = get_update_matrix(w0,N,dir,sz .+ 1)
+
+                Lnext = size(mode_next,2)
+                while Lnext+Lmode >= size(mode_bank,2)
+                    tmp = mode_bank
+                    tmp_k = ks_bank
+                    
+                    mode_bank = Matrix{ComplexF64}(undef, N, 2*size(tmp,2))
+                    ks_bank = zeros(Integer,Nw0,2*size(tmp,2))
+                    mode_bank[:,1:Lmode] .= tmp[:,1:Lmode]
+                    ks_bank[:,1:Lmode] .= tmp_k[:,1:Lmode]
+                end
+                mode_bank[:,Lmode+1:Lmode+Lnext] .= mode_next
+                ks_bank[:,Lmode+1:Lmode+Lnext] .= ks_next
+
+                Lmode = Lmode+Lnext
+                sz[dir] = sz[dir]+1
+            else
+                break
+            end
+        end
+        
+        # Recover the best solution
+        QR = QRs[dir_best]
+        downdate!(QR,QR.M-M_best)
+        solve!(QR,B_train)
+        X = get_X(QR)
+        kinds = get_kinds(QR)
+
+        # Create the torus
+        ks = ks_bank[:,kinds]
+        Nks = [maximum(row) for row in eachrow(ks)]
+        tor = FourierTorus(D_pre, Nks; τ = 2π .* w0, p=Nisland);
+        for (ii, k) in enumerate(eachcol(ks))
+            tor.a[:, :, (k + Nks .+ 1)...] = X[ii, :]
+        end
+
+        if length(w0) == 1
+            tor = FourierCircle(tor)
         end
     end
-    
-    # Recover the best solution
-    QR = QRs[dir_best]
-    downdate!(QR,QR.M-M_best)
-    solve!(QR,B_train)
-    X = get_X(QR)
-    kinds = get_kinds(QR)
 
-    # Create the torus
-    ks = ks_bank[:,kinds]
-    Nks = [maximum(row) for row in eachrow(ks)]
-    tor = FourierTorus(D_pre, Nks; τ = 2π .* w0, p=Nisland);
-    for (ii, k) in enumerate(eachcol(ks))
-        tor.a[:, :, (k + Nks .+ 1)...] = X[ii, :]
-    end
-
-    if length(w0) == 1
-        tor = FourierCircle(tor)
-    end
-
-    return tor, err_best
+    return tor, err_best, prof_info
 end
 
 """
@@ -1362,11 +1395,14 @@ Inputs:
 """
 function adaptive_get_torus!(sol::BRREsolution; max_size::Number=2000,
                              validation_fraction::Number=0.05, ridge_factor::Number=10)
-    tor, resid_tor = adaptive_get_torus(sol.w0, sol.hs; 
-                                        validation_fraction, ridge_factor, max_size)
+    tor, resid_tor, tor_prof_info = adaptive_get_torus(sol.w0, sol.hs; validation_fraction, 
+                                                       ridge_factor, max_size)
 
     sol.tor = tor
     sol.resid_tor = resid_tor
+    for (key, value) in tor_prof_info
+        sol.prof_info[key] = value
+    end
 end
 
 

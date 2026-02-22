@@ -47,6 +47,31 @@ function evaluate(tor::FourierTorus, theta::AbstractVector)
     real.(reshape(a,d,p))
 end
 
+function deval(tor::FourierTorus, theta::AbstractVector)
+    d,p,Na = tor.sz
+    D = length(Na)
+    
+    Fs = [[exp(im*n*theta[ii]) for n = -Na[ii]:Na[ii]] for ii = 1:D]
+    Ds = [[(im * n) * exp(im*n*theta[ii]) for n = -Na[ii]:Na[ii]] for ii = 1:D]
+    
+    as = Any[copy(tor.a) for ii = 1:D]
+    
+    for ii = D:-1:1
+        for jj = 1:D
+            a = reshape(as[jj], length(as[jj]) ÷ (2Na[ii]+1), (2Na[ii]+1))
+            # display(Na[ii])
+            # display((2Na[ii]+1))
+            # display(length(Ds[ii]))
+            # display(size(a))
+            # display(size(( (ii == jj) ? Ds[ii] : Fs[ii] )))
+            # display(size(a * ( (ii == jj) ? Ds[ii] : Fs[ii] )))
+            as[jj] = a * ( (ii == jj) ? Ds[ii] : Fs[ii] )
+        end
+    end
+
+    real.(reshape(vcat(as...), d, p, D))
+end
+
 """
     evaluate_on_grid(tor::FourierTorus, thetavecs::AbstractVector)
 
